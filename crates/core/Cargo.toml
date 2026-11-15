@@ -1,0 +1,12 @@
+[package]
+name = "yonder-core"
+description = "Shared identity, connection and protocol code for Yonder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
