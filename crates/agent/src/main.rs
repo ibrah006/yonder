@@ -534,9 +534,46 @@ async fn ask_yes_no(prompt: &str) -> bool {
     match BufReader::new(tokio::io::stdin())
         .read_line(&mut line)
         .await
-        .context("couldn't listen for Ctrl-C")?;
-    println!("Stopping…");
-    agent.shutdown().await;
+    {
+        Ok(_) => matches!(line.trim().to_lowercase().as_str(), "y" | "yes"),
+        Err(_) => false,
+    }
+}
+
+async fn status(state: &StateDir) -> Result<()> {
+    #[cfg(windows)]
+    match service::state() {
+        Some(s) => println!("service:     {s}"),
+        None => println!("service:     not installed"),
+    }
+    let running = InstanceLock::try_acquire(state)?.is_none();
+    let client = if running {
+        Some(connect_with_retry(state).await?)
+    } else {
+        None
+    };
+    match client {
+        Some(mut client) => {
+            let s = client.status().await?;
+            println!("agent:       running");
+            println!("name:        {}", s.name);
+            println!("fingerprint: {}", s.fingerprint);
+            println!(
+                "paused:      {}",
+                if s.paused {
+                    "yes (new jobs refused)"
+                } else {
+                    "no"
+                }
+            );
+            println!("devices:     {}", s.controllers);
+            println!(
+                "jobs:        {} running, {} queued",
+                s.jobs_running, s.jobs_queued
+            );
+        }
+        None => println!("agent:       not running"),
+    }
     Ok(())
 }
 
