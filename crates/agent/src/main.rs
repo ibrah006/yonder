@@ -392,7 +392,9 @@ async fn start_local(
         desk.approver(),
     )
     .await
-    .context("couldn't start the agent")
+    .context("couldn't start the agent")?;
+    let local = tokio::spawn(ipc::serve(agent.clone(), desk, state.clone()));
+    Ok((agent, local))
 }
 
 /// Asks the person at this machine to approve a pairing request.
