@@ -117,6 +117,15 @@ fn main() -> Result<()> {
         let state = yonder_core::jobs::runner::run(job_dir)?;
         std::process::exit(if state.is_finished() { 0 } else { 1 });
     }
+    if matches!(
+        args.command,
+        Cmd::Service {
+            action: ServiceAction::Run
+        }
+    ) {
+        return run_as_service(args);
+    }
+    init_logging(None);
     tokio::runtime::Runtime::new()?.block_on(async_main(args))
 }
 
