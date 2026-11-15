@@ -85,6 +85,13 @@ enum Cmd {
         #[arg(long, default_value_t = 20)]
         count: usize,
     },
+    /// Show whether the agent (and on Windows, the service) is running.
+    Status,
+    /// Manage the Windows service (run from an administrator terminal).
+    Service {
+        #[command(subcommand)]
+        action: ServiceAction,
+    },
     /// Runs one job. Started by the agent; not for direct use.
     #[command(hide = true)]
     JobRun { job_dir: PathBuf },
