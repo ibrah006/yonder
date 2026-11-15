@@ -496,16 +496,32 @@ async fn pair_with(mut client: ipc::Client, minutes: u64) -> Result<()> {
                 println!();
                 println!("Pairing is open for {minutes} minutes. Waiting…");
             }
-            Ok(AgentEvent::PairingClosed(PairingClosedReason::Expired)) => println!("Pairing expired."),
-            Err(_) => {}
-        },
-        _ = tokio::time::sleep(ttl) => {
-            agent.close_pairing();
-            println!("Pairing expired.");
-        }
-        _ = tokio::signal::ctrl_c() => {
-            agent.shutdown().await;
-            return Ok(());
+            Some(AgentMsg::Approve {
+                controller_name,
+                fingerprint,
+            }) => {
+                println!();
+                println!("Pairing request from \"{controller_name}\"");
+                println!("  Fingerprint: {fingerprint}");
+                println!("  Check that your device shows the same fingerprint.");
+                let allow = ask_yes_no("Allow? [y/N] ").await;
+                client.send(&ClientMsg::Decision { allow }).await?;
+            }
+            Some(AgentMsg::Paired { controller_name }) => {
+                println!("Paired with \"{controller_name}\".");
+                return Ok(());
+            }
+            Some(AgentMsg::Declined { controller_name }) => {
+                println!("Declined \"{controller_name}\". Run `yonder-agent pair` again to retry.");
+                return Ok(());
+            }
+            Some(AgentMsg::Closed { reason }) => {
+                println!("Pairing closed: {reason}. Run `yonder-agent pair` again to retry.");
+                return Ok(());
+            }
+            Some(AgentMsg::Error { message }) => bail!(message),
+            Some(AgentMsg::Status(_)) => {}
+            None => bail!("the agent closed the connection"),
         }
     }
 
