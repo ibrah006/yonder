@@ -380,8 +380,9 @@ async fn start_local(
     net: NetConfig,
     name: Option<String>,
     jobs: JobsConfig,
-) -> Result<Agent> {
-    Agent::start(
+) -> Result<(Agent, tokio::task::JoinHandle<Result<()>>)> {
+    let desk = ipc::Desk::new();
+    let agent = Agent::start(
         AgentConfig {
             state: state.clone(),
             net,
