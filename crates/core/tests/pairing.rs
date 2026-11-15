@@ -130,6 +130,7 @@ async fn controller_shows_matching_fingerprint_to_the_machine() {
             state: StateDir::new(dir.path()),
             net: NetConfig::local_only(),
             name: None,
+            jobs: None,
         },
         approver_fn(move |candidate: PairingCandidate| {
             *seen_in_approver.lock().unwrap() = Some(candidate.fingerprint);
