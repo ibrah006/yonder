@@ -434,6 +434,7 @@ async fn serve(
     Ok(())
 }
 
+/// Pairs through the running agent, or starts one here if none is running.
 async fn pair(
     state: &StateDir,
     net: NetConfig,
