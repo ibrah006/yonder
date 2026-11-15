@@ -14,6 +14,8 @@ use yonder_core::agent::{
 };
 use yonder_core::audit;
 use yonder_core::identity::{DeviceKey, fingerprint};
+use yonder_core::jobs::JobStore;
+use yonder_core::jobs::manager::{JobsConfig, RunnerCommand};
 use yonder_core::net::NetConfig;
 use yonder_core::store::{AgentState, PairedController, StateDir, default_agent_dir, format_date};
 
