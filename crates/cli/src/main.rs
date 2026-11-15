@@ -88,8 +88,7 @@ enum Cmd {
     Whoami,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> ExitCode {
     let args = Args::parse();
     init_logging();
     let state = StateDir::new(match &args.state_dir {
