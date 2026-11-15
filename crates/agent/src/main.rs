@@ -213,6 +213,9 @@ fn args_for_service(args: &Args) -> Vec<std::ffi::OsString> {
     if args.no_lookup {
         out.push("--no-lookup".into());
     }
+    if let Some(port) = args.port {
+        out.extend(["--port".into(), port.to_string().into()]);
+    }
     out.extend(["--max-jobs".into(), args.max_jobs.to_string().into()]);
     out
 }
