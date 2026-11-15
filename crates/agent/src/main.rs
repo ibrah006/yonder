@@ -196,6 +196,48 @@ async fn async_main(args: Args) -> Result<()> {
     }
 }
 
+/// Settings the installed service should run with.
+fn args_for_service(args: &Args) -> Vec<std::ffi::OsString> {
+    let mut out: Vec<std::ffi::OsString> = Vec::new();
+    if let Some(dir) = &args.state_dir {
+        out.extend(["--state-dir".into(), dir.clone().into_os_string()]);
+    }
+    if args.relay != "default" {
+        out.extend(["--relay".into(), args.relay.clone().into()]);
+    }
+    if args.no_lookup {
+        out.push("--no-lookup".into());
+    }
+    out.extend(["--max-jobs".into(), args.max_jobs.to_string().into()]);
+    out
+}
+
+#[cfg(windows)]
+fn service_command(
+    action: ServiceAction,
+    service_args: &[std::ffi::OsString],
+    state: &StateDir,
+) -> Result<()> {
+    match action {
+        ServiceAction::Install => service::install(state.path(), service_args.to_vec()),
+        ServiceAction::Uninstall => service::uninstall(),
+        ServiceAction::Start => service::control(true),
+        ServiceAction::Stop => service::control(false),
+        ServiceAction::Run => unreachable!("handled before the runtime starts"),
+    }
+}
+
+#[cfg(not(windows))]
+fn service_command(
+    _action: ServiceAction,
+    _service_args: &[std::ffi::OsString],
+    _state: &StateDir,
+) -> Result<()> {
+    bail!(
+        "the service is Windows-only for now; use `yonder-agent serve` (the macOS agent comes later)"
+    )
+}
+
 fn set_paused(state: &StateDir, paused: bool) -> Result<()> {
     let path = state.agent_file();
     let mut agent_state = AgentState::load(&path)?;
