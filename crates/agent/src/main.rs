@@ -177,6 +177,8 @@ async fn async_main(args: Args) -> Result<()> {
     match args.command {
         Cmd::Serve { name } => serve(&state, net, name, jobs).await,
         Cmd::Pair { minutes, name } => pair(&state, net, name, jobs, minutes).await,
+        Cmd::Status => status(&state).await,
+        Cmd::Service { action } => service_command(action, &service_args, &state),
         Cmd::Controllers => list_controllers(&state),
         Cmd::Revoke { device } => revoke(&state, &device),
         Cmd::Id => {
