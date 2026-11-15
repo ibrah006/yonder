@@ -91,6 +91,23 @@ enum Cmd {
 fn main() -> ExitCode {
     let args = Args::parse();
     init_logging();
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(err) => {
+            eprintln!("Error: {err}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match runtime.block_on(async_main(args)) {
+        Ok(code) => code,
+        Err(err) => {
+            eprintln!("Error: {err:#}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn async_main(args: Args) -> Result<ExitCode> {
     let state = StateDir::new(match &args.state_dir {
         Some(dir) => dir.clone(),
         None => default_controller_dir()
