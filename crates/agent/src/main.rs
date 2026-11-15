@@ -397,23 +397,41 @@ async fn start_local(
     Ok((agent, local))
 }
 
-/// Asks the person at this machine to approve a pairing request.
-async fn ask_at_terminal(candidate: PairingCandidate) -> bool {
-    use std::io::Write;
-    println!();
-    println!("Pairing request from \"{}\"", candidate.controller_name);
-    println!("  Fingerprint: {}", candidate.fingerprint);
-    println!("  Check that your device shows the same fingerprint.");
-    print!("Allow? [y/N] ");
-    let _ = std::io::stdout().flush();
-    let mut line = String::new();
-    match BufReader::new(tokio::io::stdin())
-        .read_line(&mut line)
-        .await
-    {
-        Ok(_) => matches!(line.trim().to_lowercase().as_str(), "y" | "yes"),
-        Err(_) => false,
-    }
+/// Runs the agent until `stop` resolves.
+#[cfg(windows)]
+async fn run_until(
+    state: &StateDir,
+    net: NetConfig,
+    name: Option<String>,
+    jobs: JobsConfig,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()> {
+    let _lock = InstanceLock::acquire(state)?;
+    let (agent, local) = start_local(state, net, name, jobs).await?;
+    stop.await;
+    agent.shutdown().await;
+    local.abort();
+    Ok(())
+}
+
+async fn ctrl_c() {
+    let _ = tokio::signal::ctrl_c().await;
+}
+
+async fn serve(
+    state: &StateDir,
+    net: NetConfig,
+    name: Option<String>,
+    jobs: JobsConfig,
+) -> Result<()> {
+    let _lock = InstanceLock::acquire(state)?;
+    let (agent, local) = start_local(state, net, name, jobs).await?;
+    println!("{} is ready. Press Ctrl-C to stop.", agent.name());
+    ctrl_c().await;
+    println!("Stopping… (running jobs carry on)");
+    agent.shutdown().await;
+    local.abort();
+    Ok(())
 }
 
 async fn pair(
