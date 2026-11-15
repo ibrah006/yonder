@@ -335,6 +335,73 @@ impl Controller {
         result
     }
 
+    /// Starts a shell (`session: None`) or attaches to one, replaying output from byte
+    /// `from` (default: all scrollback the machine kept).
+    pub async fn open_terminal(
+        &self,
+        machine: &PairedMachine,
+        session: Option<SessionId>,
+        cols: u16,
+        rows: u16,
+        from: Option<u64>,
+    ) -> Result<(TerminalInfo, TerminalWriter, TerminalReader)> {
+        let conn = self.connection(machine).await?;
+        let command = Command::OpenTerminal {
+            session,
+            cols,
+            rows,
+            from,
+        };
+        let signed = SignedRequest::new(&self.key, machine.id, command);
+        let opened = tokio::time::timeout(REQUEST_TIMEOUT, async {
+            let (mut send, mut recv) = conn.open_bi().await.map_err(Error::network)?;
+            // Not finished: keystrokes follow on the same stream.
+            write_frame(&mut send, &signed).await?;
+            match read_frame::<Response>(&mut recv).await? {
+                Some(Response::TerminalOpened(info)) => Ok((info, send, recv)),
+                Some(Response::Error(err)) => Err(Error::Remote(err)),
+                Some(other) => Err(unexpected("an open terminal", &other)),
+                None => Err(Error::Protocol(
+                    "the machine closed the terminal stream".into(),
+                )),
+            }
+        })
+        .await
+        .map_err(|_| Error::Timeout("no answer from the machine"))
+        .and_then(|r| r);
+        match opened {
+            Ok((info, send, recv)) => Ok((info, TerminalWriter(send), TerminalReader(recv))),
+            Err(err @ Error::Remote(_)) => Err(err),
+            Err(err) => {
+                self.connections.lock().await.remove(&machine.id);
+                Err(explain_close(&conn).unwrap_or(err))
+            }
+        }
+    }
+
+    /// Terminal sessions on the machine, newest first.
+    pub async fn terminals(&self, machine: &PairedMachine) -> Result<Vec<TerminalInfo>> {
+        match self.request(machine, Command::ListTerminals).await? {
+            Response::Terminals(list) => Ok(list),
+            other => Err(unexpected("terminals", &other)),
+        }
+    }
+
+    /// Ends a session's shell.
+    pub async fn close_terminal(
+        &self,
+        machine: &PairedMachine,
+        id: &SessionId,
+    ) -> Result<TerminalInfo> {
+        match self
+            .request(machine, Command::CloseTerminal(id.clone()))
+            .await?
+        {
+            Response::Terminal(info) => Ok(info),
+            other => Err(unexpected("a terminal", &other)),
+        }
+    }
+
     /// Closes all connections.
     pub async fn close(&self) {
         self.connections.lock().await.clear();
