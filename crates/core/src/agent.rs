@@ -16,6 +16,8 @@ use crate::Os;
 use crate::audit::{AuditEntry, AuditLog};
 use crate::error::Result;
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
+use crate::jobs::manager::{JobManager, JobsConfig};
+use crate::jobs::{JobId, JobMeta, JobStore};
 use crate::net::{self, NetConfig};
 use crate::permissions::Permissions;
 use crate::protocol::{
