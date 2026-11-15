@@ -20,6 +20,7 @@ use crate::error::{Error, Result};
 use crate::identity::{DeviceId, DeviceKey};
 use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::permissions::{Permission, Permissions};
+use crate::terminal::{SessionId, TerminalInfo};
 
 /// ALPN for normal use by paired controllers.
 pub const CONTROL_ALPN: &[u8] = b"yonder/control/1";
