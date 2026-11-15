@@ -480,8 +480,21 @@ async fn pair_with(mut client: ipc::Client, minutes: u64) -> Result<()> {
                 println!("\nPairing cancelled.");
                 return Ok(());
             }
-            Ok(AgentEvent::PairingClosed(PairingClosedReason::TooManyWrongTickets)) => {
-                println!("Pairing closed after several wrong tickets. Run `yonder-agent pair` again.");
+        };
+        match msg {
+            Some(AgentMsg::Ticket {
+                ticket,
+                machine_name,
+                fingerprint,
+                minutes,
+            }) => {
+                println!("This machine: {machine_name}  (fingerprint {fingerprint})");
+                println!();
+                println!("On your other device, run:");
+                println!();
+                println!("  yonder pair {ticket}");
+                println!();
+                println!("Pairing is open for {minutes} minutes. Waiting…");
             }
             Ok(AgentEvent::PairingClosed(PairingClosedReason::Expired)) => println!("Pairing expired."),
             Err(_) => {}
