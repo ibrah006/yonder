@@ -318,7 +318,7 @@ fn truncate(text: &str, max: usize) -> String {
     }
 }
 
-fn init_logging() {
+fn init_logging(file: Option<&std::path::Path>) {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "warn,yonder_core=info,yonder_agent=info".into());
     tracing_subscriber::fmt()
