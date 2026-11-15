@@ -459,24 +459,26 @@ async fn pair(
     result
 }
 
-    println!(
-        "This machine: {}  (fingerprint {})",
-        agent.name(),
-        agent.fingerprint()
-    );
-    println!();
-    println!("On your other device, run:");
-    println!();
-    println!("  yonder pair {}", ticket.encode());
-    println!();
-    println!("Pairing is open for {minutes} minutes. Waiting…");
+async fn connect_with_retry(state: &StateDir) -> Result<ipc::Client> {
+    for _ in 0..50 {
+        if let Some(client) = ipc::Client::connect(state).await? {
+            return Ok(client);
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    bail!("the agent's local control channel didn't start")
+}
 
-    // Every pairing outcome ends this wait; the agent keeps serving afterwards.
-    tokio::select! {
-        event = events.recv() => match event {
-            Ok(AgentEvent::Paired(c)) => println!("Paired with \"{}\".", c.name),
-            Ok(AgentEvent::PairingDeclined(c)) => {
-                println!("Declined \"{}\". Run `yonder-agent pair` again to retry.", c.controller_name);
+/// The terminal side of pairing: shows the ticket and asks before allowing a device.
+async fn pair_with(mut client: ipc::Client, minutes: u64) -> Result<()> {
+    use ipc::{AgentMsg, ClientMsg};
+    client.send(&ClientMsg::Pair { minutes }).await?;
+    loop {
+        let msg = tokio::select! {
+            msg = client.recv() => msg?,
+            _ = ctrl_c() => {
+                println!("\nPairing cancelled.");
+                return Ok(());
             }
             Ok(AgentEvent::PairingClosed(PairingClosedReason::TooManyWrongTickets)) => {
                 println!("Pairing closed after several wrong tickets. Run `yonder-agent pair` again.");
