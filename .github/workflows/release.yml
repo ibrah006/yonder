@@ -1,0 +1,71 @@
+name: Release
+
+# Builds the agent and CLI for each OS when a version tag is pushed, and attaches
+# them to a draft GitHub release. Binaries are UNSIGNED until signing is set up
+# (Azure Trusted Signing for Windows, Developer ID + notarization for macOS).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, ext: .exe }
+          - { os: windows-latest, target: aarch64-pc-windows-msvc, ext: .exe }
+          - { os: macos-latest, target: aarch64-apple-darwin, ext: "" }
+          - { os: macos-latest, target: x86_64-apple-darwin, ext: "" }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, ext: "" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }} -p yonder-agent -p yonder-cli
+      - name: Package
+        shell: bash
+        run: |
+          dir="yonder-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir "$dir"
+          cp "target/${{ matrix.target }}/release/yonder${{ matrix.ext }}" "$dir/"
+          cp "target/${{ matrix.target }}/release/yonder-agent${{ matrix.ext }}" "$dir/"
+          cp LICENSE README.md "$dir/"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "$dir.zip" "$dir" > /dev/null
+          else
+            tar czf "$dir.tar.gz" "$dir"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            yonder-*.zip
+            yonder-*.tar.gz
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Checksums
+        run: sha256sum yonder-* > SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            yonder-*
+            SHA256SUMS
