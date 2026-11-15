@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use iroh::Endpoint;
 use iroh::endpoint::{ApplicationClose, Connection, ConnectionError};
 
+use crate::Os;
 use crate::agent::{APPROVAL_TIMEOUT, clean_name};
 use crate::error::{Error, Result};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
