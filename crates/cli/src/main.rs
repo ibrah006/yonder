@@ -144,7 +144,7 @@ fn init_logging() {
         .init();
 }
 
-async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<()> {
+async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<ExitCode> {
     match command {
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
