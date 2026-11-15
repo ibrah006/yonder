@@ -132,6 +132,91 @@ async fn async_main(args: Args) -> Result<()> {
             println!("state:       {}", state.path().display());
             Ok(())
         }
+        Cmd::Pause => set_paused(&state, true),
+        Cmd::Resume => set_paused(&state, false),
+        Cmd::Jobs => list_jobs(&state),
+        Cmd::Audit { count } => show_audit(&state, count),
+        Cmd::JobRun { .. } => unreachable!("handled before the runtime starts"),
+    }
+}
+
+fn set_paused(state: &StateDir, paused: bool) -> Result<()> {
+    let path = state.agent_file();
+    let mut agent_state = AgentState::load(&path)?;
+    agent_state.paused = paused;
+    agent_state.save(&path)?;
+    if paused {
+        println!(
+            "Paused: new jobs are refused. Running jobs carry on. `yonder-agent resume` to undo."
+        );
+    } else {
+        println!("Resumed: new jobs are accepted.");
+    }
+    Ok(())
+}
+
+fn list_jobs(state: &StateDir) -> Result<()> {
+    let jobs = JobStore::new(state.jobs_dir()).list();
+    if jobs.is_empty() {
+        println!("No jobs yet.");
+        return Ok(());
+    }
+    println!(
+        "{:16}  {:9}  {:16}  {:14}  COMMAND",
+        "ID", "STATE", "STARTED", "BY"
+    );
+    for job in jobs {
+        let started = job
+            .status
+            .started_at_ms
+            .map(format_datetime_ms)
+            .unwrap_or_else(|| "-".into());
+        println!(
+            "{:16}  {:9}  {:16}  {:14}  {}",
+            job.meta.id.as_str(),
+            job.status.state.name(),
+            started,
+            truncate(&job.meta.controller_name, 14),
+            truncate(&job.meta.spec.summary(), 60)
+        );
+    }
+    Ok(())
+}
+
+fn show_audit(state: &StateDir, count: usize) -> Result<()> {
+    let entries = audit::read_recent(&state.audit_file(), count)?;
+    if entries.is_empty() {
+        println!("No requests recorded yet.");
+        return Ok(());
+    }
+    println!(
+        "{:16}  {:14}  {:11}  {:16}  DETAIL",
+        "TIME (UTC)", "DEVICE", "COMMAND", "OUTCOME"
+    );
+    for e in entries {
+        let device = e
+            .controller_name
+            .clone()
+            .unwrap_or_else(|| e.controller.fmt_short().to_string());
+        println!(
+            "{:16}  {:14}  {:11}  {:16}  {}",
+            format_datetime_ms(e.at_ms),
+            truncate(&device, 14),
+            e.command,
+            e.outcome,
+            truncate(e.detail.as_deref().unwrap_or(""), 60)
+        );
+    }
+    Ok(())
+}
+
+fn truncate(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        text.to_string()
+    } else {
+        let mut cut: String = text.chars().take(max.saturating_sub(1)).collect();
+        cut.push('…');
+        cut
     }
 }
 
