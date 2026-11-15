@@ -445,6 +445,7 @@ async fn decide(
     }
 
     info!(controller = %controller.name, command = body.command.name(), "request");
+    let internal = |e: crate::Error| RemoteError::new(ErrorCode::Internal, e.to_string());
     Ok(match body.command {
         Command::Ping => Response::Pong,
         Command::Info => Response::Info(MachineInfo {
