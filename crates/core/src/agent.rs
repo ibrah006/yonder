@@ -413,6 +413,7 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
     let sent = match reply {
         Reply::One(response) => write_message(&mut send, &*response).await,
         Reply::Logs { id, from, follow } => stream_logs(inner, &id, from, follow, &mut send).await,
+        Reply::Terminal { session, from } => serve_terminal(session, from, send, recv).await,
     };
     if let Err(err) = sent {
         debug!("could not send response: {err}");
