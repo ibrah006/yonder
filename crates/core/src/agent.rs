@@ -148,6 +148,7 @@ struct Inner {
     events: broadcast::Sender<AgentEvent>,
     jobs: Option<Arc<JobManager>>,
     audit: AuditLog,
+    terminals: Arc<TerminalManager>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
