@@ -106,6 +106,61 @@ impl Controller {
         lock(&self.state).find_machine(query).cloned()
     }
 
+    /// Resolves what the user typed as a machine: a name or id prefix first; otherwise an
+    /// OS (`win`, `mac`, `linux`) or `any`, choosing the reachable, unpaused machine with
+    /// the fewest jobs.
+    pub async fn pick_machine(&self, query: &str) -> Result<PairedMachine> {
+        match self.find_machine(query) {
+            Err(Error::UnknownMachine(_)) => {}
+            other => return other,
+        }
+        let os = if query.trim().eq_ignore_ascii_case("any") {
+            None
+        } else {
+            Some(Os::parse(query.trim()).ok_or_else(|| Error::UnknownMachine(query.to_string()))?)
+        };
+        let what = os.map_or("".to_string(), |os| format!("{os} "));
+        let candidates: Vec<PairedMachine> = self
+            .machines()
+            .into_iter()
+            .filter(|m| os.is_none_or(|os| m.os == os))
+            .collect();
+        match candidates.as_slice() {
+            [] => {
+                return Err(Error::UnknownMachine(format!(
+                    "{query} (no paired {what}machine)"
+                )));
+            }
+            [only] => return Ok(only.clone()),
+            _ => {}
+        }
+        let probes = candidates.iter().map(|machine| async move {
+            let probe = async {
+                let info = self.info(machine).await?;
+                let jobs = self.jobs(machine).await.unwrap_or_default();
+                let busy = jobs
+                    .iter()
+                    .filter(|j| !j.status.state.is_finished())
+                    .count();
+                Ok::<_, Error>((info.paused, busy))
+            };
+            tokio::time::timeout(PROBE_TIMEOUT, probe)
+                .await
+                .ok()
+                .and_then(|r| r.ok())
+                .map(|score| (score, machine.clone()))
+        });
+        futures_util::future::join_all(probes)
+            .await
+            .into_iter()
+            .flatten()
+            .min_by_key(|(score, _)| *score)
+            .map(|(_, machine)| machine)
+            .ok_or(Error::Timeout(
+                "none of those machines answered; are they on and online?",
+            ))
+    }
+
     /// Pairs with the machine that showed `ticket`. Waits while the person at the machine
     /// approves, so this can take up to a couple of minutes.
     pub async fn pair(&self, ticket: &PairingTicket) -> Result<PairedMachine> {
