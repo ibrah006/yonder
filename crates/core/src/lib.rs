@@ -1,7 +1,10 @@
 //! Shared code for the Yonder agent, CLI and app.
 //!
-//! Identity, connections and the wire protocol land here in Step 1. For now it holds
-//! the facts every component must agree on: the protocol version and the platform model.
+//! - [`identity`]: each device's key; its public half is the device id.
+//! - [`ticket`]: pairing tickets shown on a machine and entered on a controller.
+//! - [`protocol`]: signed requests and responses.
+//! - [`agent`] / [`controller`]: the two sides of a connection.
+//! - [`store`]: small on-disk state files.
 
 use std::fmt;
 
