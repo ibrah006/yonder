@@ -197,12 +197,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
                 );
                 return Ok(ExitCode::SUCCESS);
             }
-            let width = machines
-                .iter()
-                .map(|m| m.name.chars().count())
-                .max()
-                .unwrap_or(4)
-                .max(4);
+            let width = name_width(machines.iter().map(|m| m.name.as_str()));
             println!("{:width$}  {:7}  {:10}  PAIRED", "NAME", "OS", "ID");
             for m in &machines {
                 println!(
