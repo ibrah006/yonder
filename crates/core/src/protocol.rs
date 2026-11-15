@@ -412,7 +412,7 @@ pub async fn write_message<T: Serialize>(send: &mut SendStream, message: &T) -> 
     Ok(())
 }
 
-/// Reads one whole message from a stream the other side has finished.
+/// Reads exactly one message.
 pub async fn read_message<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<T> {
     let bytes = recv
         .read_to_end(MAX_MESSAGE_BYTES)
