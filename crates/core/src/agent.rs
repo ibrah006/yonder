@@ -13,6 +13,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
 use crate::Os;
+use crate::audit::{AuditEntry, AuditLog};
 use crate::error::Result;
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
 use crate::net::{self, NetConfig};
