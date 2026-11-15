@@ -38,6 +38,37 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Run a command on a machine and show its output as it runs.
+    ///
+    /// The job keeps running on the machine if you disconnect or press Ctrl-C; reattach
+    /// with `yonder attach`. Exits with the job's exit code.
+    ///
+    /// Example: yonder run win -- flutter build windows
+    Run(jobs::RunArgs),
+    /// Follow a job's output until it finishes (default: the latest job).
+    Attach {
+        machine: String,
+        /// Job id or its start; default: the latest job.
+        job: Option<String>,
+    },
+    /// Print a job's output so far (default: the latest job).
+    Logs {
+        machine: String,
+        job: Option<String>,
+        /// Keep printing new output until the job finishes.
+        #[arg(short, long)]
+        follow: bool,
+    },
+    /// List jobs on a machine.
+    Jobs { machine: String },
+    /// Stop a queued or running job.
+    Cancel {
+        machine: String,
+        /// Job id or its start; default: the latest job.
+        job: Option<String>,
+    },
+    /// Show every paired machine: online, paused, busy.
+    Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
     Pair {
         ticket: String,
