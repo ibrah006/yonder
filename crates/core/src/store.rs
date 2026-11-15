@@ -195,6 +195,9 @@ pub struct AgentState {
     pub machine_name: String,
     #[serde(default)]
     pub controllers: Vec<PairedController>,
+    /// New jobs are refused while paused; running jobs carry on.
+    #[serde(default)]
+    pub paused: bool,
 }
 
 impl AgentState {
