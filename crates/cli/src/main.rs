@@ -191,6 +191,25 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             let job = controller.cancel(&machine, &id).await?;
             println!("Job {id} on {}: {}", machine.name, job.status.state);
         }
+        Cmd::Shell { machine, session } => {
+            let machine = controller.pick_machine(&machine).await?;
+            let session = match session {
+                Some(query) => Some(shell::resolve(controller, &machine, &query).await?),
+                None => None,
+            };
+            return shell::run(controller, &machine, session).await;
+        }
+        Cmd::Shells { machine, close } => {
+            let machine = controller.pick_machine(&machine).await?;
+            match close {
+                Some(query) => {
+                    let id = shell::resolve(controller, &machine, &query).await?;
+                    controller.close_terminal(&machine, &id).await?;
+                    println!("Closed shell {id} on {}.", machine.name);
+                }
+                None => shell::list(controller, &machine).await?,
+            }
+        }
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
