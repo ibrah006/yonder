@@ -267,8 +267,14 @@ async fn ask_at_terminal(candidate: PairingCandidate) -> bool {
     }
 }
 
-async fn pair(state: &StateDir, net: NetConfig, name: Option<String>, minutes: u64) -> Result<()> {
-    let agent = start(state, net, name).await?;
+async fn pair(
+    state: &StateDir,
+    net: NetConfig,
+    name: Option<String>,
+    jobs: JobsConfig,
+    minutes: u64,
+) -> Result<()> {
+    let agent = start(state, net, name, jobs).await?;
     let mut events = agent.subscribe();
     let minutes = minutes.max(1);
     let ttl = Duration::from_secs(minutes * 60);
