@@ -92,7 +92,13 @@ impl JobManager {
         self.slots().queue.push_back(meta.id.clone());
         info!(job = %meta.id, controller = %meta.controller_name, "job queued");
         self.pump();
-        self.store.info(&meta.id)
+        let mut info = self.store.info(&meta.id)?;
+        // A runner was started for it but hasn't recorded "running" yet: say so, rather
+        // than make the caller think it's waiting behind other jobs.
+        if info.status.state == JobState::Queued && self.slots().running.contains(&meta.id) {
+            info.status.state = JobState::Running;
+        }
+        Ok(info)
     }
 
     /// Cancels a queued or running job. Finished jobs are left as they are.
