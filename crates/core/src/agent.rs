@@ -529,6 +529,74 @@ async fn decide(
     })
 }
 
+/// Connects a client to a terminal session until it detaches or the shell exits.
+///
+/// Keystrokes are read in their own task: reading a frame isn't safe to interrupt, so it
+/// can't sit in the same `select!` as output.
+async fn serve_terminal(
+    session: Arc<Session>,
+    from: u64,
+    mut send: SendStream,
+    mut recv: RecvStream,
+) -> Result<()> {
+    let _attached = session.attach();
+    write_frame(&mut send, &Response::TerminalOpened(session.info())).await?;
+
+    let (detached_tx, mut detached) = tokio::sync::oneshot::channel::<()>();
+    let input_session = session.clone();
+    let input = tokio::spawn(async move {
+        loop {
+            match read_frame::<TerminalInput>(&mut recv).await {
+                Ok(Some(TerminalInput::Data(data))) => {
+                    let s = input_session.clone();
+                    // Writing to a PTY can block briefly when the shell is busy.
+                    if tokio::task::spawn_blocking(move || s.write(&data))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+                Ok(Some(TerminalInput::Resize { cols, rows })) => input_session.resize(cols, rows),
+                Ok(None) | Err(_) => break,
+            }
+        }
+        let _ = detached_tx.send(());
+    });
+
+    let mut changes = session.subscribe();
+    let mut offset = from;
+    let result = loop {
+        loop {
+            let (start, data) = session.read(offset, LOG_CHUNK_BYTES);
+            if data.is_empty() {
+                break;
+            }
+            offset = start + data.len() as u64;
+            write_frame(
+                &mut send,
+                &Response::TerminalOutput {
+                    offset: start,
+                    data,
+                },
+            )
+            .await?;
+        }
+        if let Some(code) = session.exit()
+            && offset >= session.output_end()
+        {
+            break write_message(&mut send, &Response::TerminalExit { code }).await;
+        }
+        tokio::select! {
+            _ = changes.changed() => {}
+            _ = &mut detached => break Ok(()),
+            _ = send.stopped() => break Ok(()),
+        }
+    };
+    input.abort();
+    result
+}
+
 /// Sends a job's output from `from`, then (with `follow`) new output as it's written,
 /// ending with [`Response::LogEnd`] once the job has finished and everything was sent.
 async fn stream_logs(
