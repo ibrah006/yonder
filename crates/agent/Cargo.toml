@@ -11,6 +11,10 @@ publish.workspace = true
 [dependencies]
 yonder-core.workspace = true
 clap.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "io-std", "io-util"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [lints]
 workspace = true
