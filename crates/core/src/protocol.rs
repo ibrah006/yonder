@@ -12,7 +12,7 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 use iroh::Signature;
-use iroh::endpoint::{RecvStream, SendStream};
+use iroh::endpoint::{ReadExactError, RecvStream, SendStream};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::Os;
