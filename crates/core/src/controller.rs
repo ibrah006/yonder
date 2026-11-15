@@ -427,6 +427,67 @@ impl Controller {
     }
 }
 
+/// Sends keystrokes and size changes to an open terminal. Dropping it (or [`detach`])
+/// leaves the shell running on the machine.
+///
+/// [`detach`]: TerminalWriter::detach
+pub struct TerminalWriter(SendStream);
+
+impl std::fmt::Debug for TerminalWriter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TerminalWriter")
+    }
+}
+
+impl TerminalWriter {
+    pub async fn send(&mut self, data: &[u8]) -> Result<()> {
+        write_frame(&mut self.0, &TerminalInput::Data(data.to_vec())).await
+    }
+
+    pub async fn resize(&mut self, cols: u16, rows: u16) -> Result<()> {
+        write_frame(&mut self.0, &TerminalInput::Resize { cols, rows }).await
+    }
+
+    /// Detaches; the shell keeps running.
+    pub fn detach(mut self) {
+        let _ = self.0.finish();
+    }
+}
+
+/// What a terminal sends back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TerminalEvent {
+    /// Output starting at byte `offset` of the session.
+    Output { offset: u64, data: Vec<u8> },
+    /// The shell exited.
+    Exit(Option<u32>),
+}
+
+/// Receives a terminal's output.
+pub struct TerminalReader(RecvStream);
+
+impl std::fmt::Debug for TerminalReader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TerminalReader")
+    }
+}
+
+impl TerminalReader {
+    /// The next output or the exit. An error means the connection dropped: reattach with
+    /// `from` set to the end of the last output received.
+    pub async fn next(&mut self) -> Result<TerminalEvent> {
+        match read_frame::<Response>(&mut self.0).await? {
+            Some(Response::TerminalOutput { offset, data }) => {
+                Ok(TerminalEvent::Output { offset, data })
+            }
+            Some(Response::TerminalExit { code }) => Ok(TerminalEvent::Exit(code)),
+            Some(Response::Error(err)) => Err(Error::Remote(err)),
+            Some(other) => Err(unexpected("terminal output", &other)),
+            None => Err(Error::Protocol("the terminal stream ended".into())),
+        }
+    }
+}
+
 fn unexpected(wanted: &str, got: &Response) -> Error {
     Error::Protocol(format!("expected {wanted}, got {got:?}"))
 }
