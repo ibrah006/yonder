@@ -337,7 +337,45 @@ fn init_logging(file: Option<&std::path::Path>) {
     }
 }
 
-async fn start(
+/// Holds `<state>/agent.lock` for as long as an agent runs on that folder, so two agents
+/// (say, the service and a terminal) never share one identity and state.
+struct InstanceLock(#[allow(dead_code)] std::fs::File);
+
+impl InstanceLock {
+    /// `Ok(None)` if another agent holds the lock.
+    fn try_acquire(state: &StateDir) -> Result<Option<InstanceLock>> {
+        std::fs::create_dir_all(state.path())
+            .with_context(|| format!("couldn't create {}", state.path().display()))?;
+        let path = state.path().join("agent.lock");
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+            .with_context(|| format!("couldn't open {}", path.display()))?;
+        match file.try_lock() {
+            Ok(()) => Ok(Some(InstanceLock(file))),
+            Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+            Err(std::fs::TryLockError::Error(err)) => {
+                Err(err).with_context(|| format!("couldn't lock {}", path.display()))
+            }
+        }
+    }
+
+    /// Takes the lock, or explains that an agent is already running.
+    fn acquire(state: &StateDir) -> Result<InstanceLock> {
+        Self::try_acquire(state)?.with_context(|| {
+            format!(
+                "an agent is already running for {} (is the service installed?). \
+                 Use `yonder-agent status`, or stop it first.",
+                state.path().display()
+            )
+        })
+    }
+}
+
+/// Starts the agent and its local control channel in this process.
+async fn start_local(
     state: &StateDir,
     net: NetConfig,
     name: Option<String>,
