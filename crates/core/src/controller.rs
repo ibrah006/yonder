@@ -25,6 +25,8 @@ use crate::ticket::{PairingTicket, pairing_proof};
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 /// How long to wait for an answer to a request.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long a machine gets to answer when choosing between several.
+pub const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
 /// Settings for opening a controller.
 #[derive(Debug, Clone)]
