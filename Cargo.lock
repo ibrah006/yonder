@@ -4064,6 +4064,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "futures-util",
  "tempfile",
  "tokio",
  "tracing",
@@ -4078,6 +4079,7 @@ dependencies = [
  "blake3",
  "data-encoding",
  "directories",
+ "futures-util",
  "gethostname",
  "iroh",
  "libc",
