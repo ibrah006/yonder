@@ -11,6 +11,7 @@ use iroh::endpoint::{ApplicationClose, Connection, ConnectionError};
 use crate::agent::{APPROVAL_TIMEOUT, clean_name};
 use crate::error::{Error, Result};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
+use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::net::{self, NetConfig};
 use crate::protocol::{
     CONTROL_ALPN, Command, ErrorCode, MachineInfo, PAIR_ALPN, PairRequest, PairResponse,
