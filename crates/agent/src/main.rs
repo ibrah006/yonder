@@ -524,9 +524,6 @@ async fn pair_with(mut client: ipc::Client, minutes: u64) -> Result<()> {
             None => bail!("the agent closed the connection"),
         }
     }
-
-    println!("Still serving paired devices. Press Ctrl-C to stop.");
-    wait_for_ctrl_c(&agent).await
 }
 
 async fn wait_for_ctrl_c(agent: &Agent) -> Result<()> {
