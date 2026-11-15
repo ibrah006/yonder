@@ -240,6 +240,68 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             println!("state:       {}", state.path().display());
         }
     }
+    Ok(ExitCode::SUCCESS)
+}
+
+fn name_width<'a>(names: impl Iterator<Item = &'a str>) -> usize {
+    names.map(|n| n.chars().count()).max().unwrap_or(4).max(4)
+}
+
+/// Asks every machine at once and prints one line each.
+async fn status(controller: &Controller) -> Result<()> {
+    let machines = controller.machines();
+    if machines.is_empty() {
+        println!(
+            "No machines yet. Run `yonder-agent pair` on a machine, then `yonder pair <ticket>` here."
+        );
+        return Ok(());
+    }
+    let checks = machines.iter().map(|machine| async move {
+        let check = async {
+            let rtt = controller.ping(machine).await?;
+            let info = controller.info(machine).await?;
+            let jobs = controller.jobs(machine).await.unwrap_or_default();
+            Ok::<_, yonder_core::Error>((rtt, info, jobs))
+        };
+        tokio::time::timeout(Duration::from_secs(10), check).await
+    });
+    let results = futures_util::future::join_all(checks).await;
+    let width = name_width(machines.iter().map(|m| m.name.as_str()));
+    println!(
+        "{:width$}  {:7}  {:8}  {:6}  JOBS",
+        "NAME", "OS", "STATE", "PING"
+    );
+    for (machine, result) in machines.iter().zip(results) {
+        let (state, ping, jobs) = match result {
+            Ok(Ok((rtt, info, jobs))) => {
+                let running = jobs
+                    .iter()
+                    .filter(|j| j.status.state == yonder_core::jobs::JobState::Running)
+                    .count();
+                let queued = jobs
+                    .iter()
+                    .filter(|j| j.status.state == yonder_core::jobs::JobState::Queued)
+                    .count();
+                (
+                    if info.paused { "paused" } else { "online" }.to_string(),
+                    format!("{} ms", rtt.as_millis()),
+                    format!("{running} running, {queued} queued"),
+                )
+            }
+            Ok(Err(yonder_core::Error::Remote(err))) => {
+                ("refused".to_string(), "-".to_string(), err.message)
+            }
+            _ => ("offline".to_string(), "-".to_string(), String::new()),
+        };
+        println!(
+            "{:width$}  {:7}  {:8}  {:6}  {}",
+            machine.name,
+            machine.os.to_string(),
+            state,
+            ping,
+            jobs
+        );
+    }
     Ok(())
 }
 
