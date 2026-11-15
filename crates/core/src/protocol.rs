@@ -114,7 +114,9 @@ impl Command {
     /// Details for the audit log: the command line for new jobs, the job id otherwise.
     pub fn detail(&self) -> Option<String> {
         match self {
-            Command::Ping | Command::Info | Command::ListJobs => None,
+            Command::Ping | Command::Info | Command::ListJobs | Command::ListTerminals => None,
+            Command::OpenTerminal { session, .. } => session.as_ref().map(ToString::to_string),
+            Command::CloseTerminal(id) => Some(id.to_string()),
             Command::RunJob(spec) => Some(spec.summary()),
             Command::GetJob(id) | Command::CancelJob(id) | Command::JobLogs { id, .. } => {
                 Some(id.to_string())
