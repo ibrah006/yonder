@@ -389,7 +389,7 @@ async fn start_local(
             name,
             jobs: Some(jobs),
         },
-        approver_fn(ask_at_terminal),
+        desk.approver(),
     )
     .await
     .context("couldn't start the agent")
