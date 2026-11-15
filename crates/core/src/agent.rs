@@ -145,6 +145,8 @@ struct Inner {
     connections: Mutex<HashMap<DeviceId, Vec<Connection>>>,
     approver: Arc<dyn PairingApprover>,
     events: broadcast::Sender<AgentEvent>,
+    jobs: Option<Arc<JobManager>>,
+    audit: AuditLog,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
