@@ -12,7 +12,7 @@ publish = false
 
 [workspace.dependencies]
 yonder-core = { path = "crates/core" }
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
