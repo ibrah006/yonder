@@ -321,10 +321,20 @@ fn truncate(text: &str, max: usize) -> String {
 fn init_logging(file: Option<&std::path::Path>) {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "warn,yonder_core=info,yonder_agent=info".into());
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_writer(std::io::stderr)
-        .init();
+    let builder = tracing_subscriber::fmt().with_env_filter(filter);
+    match file.and_then(|path| {
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()
+    }) {
+        Some(file) => builder
+            .with_ansi(false)
+            .with_writer(std::sync::Mutex::new(file))
+            .init(),
+        None => builder.with_writer(std::io::stderr).init(),
+    }
 }
 
 async fn start(
