@@ -4,6 +4,7 @@
 //! `linux`, `any`), in which case the least busy reachable one is used.
 
 mod jobs;
+mod shell;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
