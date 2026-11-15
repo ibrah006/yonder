@@ -34,6 +34,10 @@ pub const APPROVAL_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_PAIRING_FAILURES: u32 = 5;
 /// Longest accepted device name; longer names are cut.
 const MAX_NAME_CHARS: usize = 64;
+/// Largest piece of log sent in one message.
+const LOG_CHUNK_BYTES: usize = 64 * 1024;
+/// How often a followed log is checked for new output.
+const LOG_POLL: Duration = Duration::from_millis(250);
 
 /// Settings for starting an agent.
 #[derive(Debug, Clone)]
