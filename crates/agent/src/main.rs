@@ -9,9 +9,11 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use yonder_core::agent::{
-    Agent, AgentConfig, AgentEvent, PairingCandidate, PairingClosedReason, approver_fn,
-};
+mod ipc;
+#[cfg(windows)]
+mod service;
+
+use yonder_core::agent::{Agent, AgentConfig};
 use yonder_core::audit;
 use yonder_core::identity::{DeviceKey, fingerprint};
 use yonder_core::jobs::JobStore;
