@@ -146,6 +146,35 @@ fn init_logging() {
 
 async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<ExitCode> {
     match command {
+        Cmd::Run(args) => return jobs::run(controller, args).await,
+        Cmd::Attach { machine, job } => {
+            let machine = controller.pick_machine(&machine).await?;
+            let id = jobs::resolve(controller, &machine, job.as_deref()).await?;
+            return jobs::follow(controller, &machine, &id, 0).await;
+        }
+        Cmd::Logs {
+            machine,
+            job,
+            follow,
+        } => {
+            let machine = controller.pick_machine(&machine).await?;
+            let id = jobs::resolve(controller, &machine, job.as_deref()).await?;
+            if follow {
+                return jobs::follow(controller, &machine, &id, 0).await;
+            }
+            jobs::print_logs(controller, &machine, &id).await?;
+        }
+        Cmd::Jobs { machine } => {
+            let machine = controller.pick_machine(&machine).await?;
+            jobs::list(controller, &machine).await?;
+        }
+        Cmd::Cancel { machine, job } => {
+            let machine = controller.pick_machine(&machine).await?;
+            let id = jobs::resolve(controller, &machine, job.as_deref()).await?;
+            let job = controller.cancel(&machine, &id).await?;
+            println!("Job {id} on {}: {}", machine.name, job.status.state);
+        }
+        Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
             println!("This device: {}", controller.name());
