@@ -453,7 +453,39 @@ async fn decide(
             os: Os::current(),
             agent_version: crate::VERSION.to_string(),
             your_permissions: controller.permissions,
-        }),
+            paused: inner.paused(),
+        }))),
+        Command::RunJob(spec) => {
+            let jobs = inner.jobs()?;
+            if inner.paused() {
+                return Err(RemoteError::new(
+                    ErrorCode::Paused,
+                    "the owner paused new jobs on this machine",
+                ));
+            }
+            let meta = JobMeta {
+                id: JobId::generate(),
+                spec,
+                controller: *peer,
+                controller_name: controller.name,
+                created_at_ms: now_ms(),
+            };
+            audit.detail = Some(format!("{}: {}", meta.id, meta.spec.summary()));
+            Reply::One(Box::new(Response::Job(
+                jobs.submit(meta).map_err(internal)?,
+            )))
+        }
+        Command::ListJobs => Reply::One(Box::new(Response::Jobs(inner.jobs()?.list()))),
+        Command::GetJob(id) => Reply::One(Box::new(Response::Job(
+            inner.job(&id)?.store().info(&id).map_err(internal)?,
+        ))),
+        Command::CancelJob(id) => Reply::One(Box::new(Response::Job(
+            inner.job(&id)?.cancel(&id).map_err(internal)?,
+        ))),
+        Command::JobLogs { id, from, follow } => {
+            inner.job(&id)?;
+            Reply::Logs { id, from, follow }
+        }
     })
 }
 
