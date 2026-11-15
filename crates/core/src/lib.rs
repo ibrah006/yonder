@@ -24,8 +24,8 @@ pub use error::{Error, Result};
 
 /// Version of the wire protocol spoken between controllers and agents.
 ///
-/// Bump on any incompatible change. Peers with different versions refuse to talk
-/// rather than guess.
+/// Part of the connection's ALPN, so peers with different versions fail to connect with a
+/// clear error rather than misread each other. Bump on any incompatible change.
 pub const PROTOCOL_VERSION: u32 = 1;
 
 /// Version of this Yonder build, taken from the workspace manifest.
