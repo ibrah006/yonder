@@ -15,6 +15,7 @@ workspace = true
 blake3 = "1"
 data-encoding = "2"
 directories = "6"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 gethostname = "1.1.0"
 iroh = "1.4.1"
 postcard = { version = "1", features = ["use-std"] }
