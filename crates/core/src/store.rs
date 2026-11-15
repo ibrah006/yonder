@@ -90,6 +90,18 @@ pub fn format_date(unix_secs: u64) -> String {
     format!("{year:04}-{month:02}-{day:02}")
 }
 
+/// Formats Unix milliseconds as UTC date and time, e.g. `2026-11-16 14:03`.
+pub fn format_datetime_ms(unix_ms: u64) -> String {
+    let secs = unix_ms / 1000;
+    let minute_of_day = (secs % 86_400) / 60;
+    format!(
+        "{} {:02}:{:02}",
+        format_date(secs),
+        minute_of_day / 60,
+        minute_of_day % 60
+    )
+}
+
 /// The name of this computer, used as the default device name.
 pub fn default_device_name() -> String {
     let name = gethostname::gethostname().to_string_lossy().into_owned();
