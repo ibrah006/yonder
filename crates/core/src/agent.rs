@@ -23,7 +23,7 @@ use crate::permissions::Permissions;
 use crate::protocol::{
     CONTROL_ALPN, Command, ErrorCode, MachineInfo, PAIR_ALPN, PairRejection, PairRequest,
     PairResponse, RemoteError, ReplayGuard, Response, SignedRequest, close_code, now_ms,
-    read_message, write_message,
+    read_message, write_frame, write_message,
 };
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
