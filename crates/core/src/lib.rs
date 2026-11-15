@@ -32,7 +32,8 @@ pub const PROTOCOL_VERSION: u32 = 1;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Operating system family of a machine.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Os {
     Windows,
     MacOs,
