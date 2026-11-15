@@ -145,6 +145,7 @@ fn settings(args: &Args) -> Result<(NetConfig, JobsConfig)> {
     let net = NetConfig {
         relay: NetConfig::parse_relay(&args.relay)?,
         address_lookup: !args.no_lookup,
+        port: args.port,
     };
     let jobs = JobsConfig {
         runner: RunnerCommand::agent_binary(
