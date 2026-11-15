@@ -381,6 +381,33 @@ pub async fn write_frame<T: Serialize>(send: &mut SendStream, message: &T) -> Re
     let len = (bytes.len() as u32).to_le_bytes();
     send.write_all(&len).await.map_err(Error::network)?;
     send.write_all(&bytes).await.map_err(Error::network)?;
+    Ok(())
+}
+
+/// Reads one message. `None` means the other side finished the stream cleanly.
+pub async fn read_frame<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<Option<T>> {
+    let mut len = [0u8; 4];
+    match recv.read_exact(&mut len).await {
+        Ok(()) => {}
+        Err(ReadExactError::FinishedEarly(0)) => return Ok(None),
+        Err(err) => return Err(Error::network(err)),
+    }
+    let len = u32::from_le_bytes(len) as usize;
+    if len > MAX_MESSAGE_BYTES {
+        return Err(Error::Protocol(format!(
+            "message of {len} bytes is too large"
+        )));
+    }
+    let mut bytes = vec![0u8; len];
+    recv.read_exact(&mut bytes).await.map_err(Error::network)?;
+    postcard::from_bytes(&bytes)
+        .map(Some)
+        .map_err(Error::protocol)
+}
+
+/// Writes one message and finishes the stream.
+pub async fn write_message<T: Serialize>(send: &mut SendStream, message: &T) -> Result<()> {
+    write_frame(send, message).await?;
     send.finish().map_err(Error::network)?;
     Ok(())
 }
