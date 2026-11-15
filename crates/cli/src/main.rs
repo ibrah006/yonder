@@ -1,6 +1,9 @@
 //! `yonder`: use your other machines from this one.
 //!
-//! Step 1 covers pairing and reachability. `run`, `logs`, `attach` and friends come in Step 3.
+//! Machines can be named by their name, the start of their id, or by OS (`win`, `mac`,
+//! `linux`, `any`), in which case the least busy reachable one is used.
+
+mod jobs;
 
 use std::path::PathBuf;
 
