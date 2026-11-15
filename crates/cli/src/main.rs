@@ -210,7 +210,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             }
         }
         Cmd::Ping { machine } => {
-            let machine = controller.find_machine(&machine)?;
+            let machine = controller.pick_machine(&machine).await?;
             let rtt = controller.ping(&machine).await?;
             println!("{} answered in {} ms", machine.name, rtt.as_millis());
         }
