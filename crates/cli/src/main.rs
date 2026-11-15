@@ -215,7 +215,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             println!("{} answered in {} ms", machine.name, rtt.as_millis());
         }
         Cmd::Info { machine } => {
-            let machine = controller.find_machine(&machine)?;
+            let machine = controller.pick_machine(&machine).await?;
             let info = controller.info(&machine).await?;
             println!("name:        {}", info.name);
             println!("os:          {}", info.os);
