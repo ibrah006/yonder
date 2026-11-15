@@ -11,6 +11,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 pub mod agent;
+pub mod audit;
 pub mod controller;
 pub mod error;
 pub mod identity;
