@@ -120,6 +120,10 @@ pub fn install(state_dir: &Path, agent_args: Vec<OsString>) -> Result<()> {
         target.display()
     );
     println!("It starts with Windows and runs while nobody is signed in.");
+    println!();
+    println!("Note: jobs and shells currently run as the service account (LocalSystem), which");
+    println!("has full administrator rights on this machine. Only pair devices you control.");
+    println!("Running them as a separate, limited build user is coming next.");
     Ok(())
 }
 
