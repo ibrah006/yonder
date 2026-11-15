@@ -191,6 +191,8 @@ impl Agent {
             connections: Mutex::new(HashMap::new()),
             approver,
             events,
+            jobs,
+            audit: AuditLog::new(config.state.audit_file()),
         });
         tokio::spawn(accept_loop(inner.clone()));
         info!(id = %inner.id, name = %inner.machine_name, "agent started");
