@@ -304,6 +304,30 @@ impl Inner {
         AgentState::load(&self.state_path)
     }
 
+    /// Whether the owner paused new jobs. Unreadable state counts as paused.
+    fn paused(&self) -> bool {
+        self.load_state().map(|s| s.paused).unwrap_or(true)
+    }
+
+    fn jobs(&self) -> std::result::Result<&Arc<JobManager>, RemoteError> {
+        self.jobs
+            .as_ref()
+            .ok_or_else(|| RemoteError::new(ErrorCode::Unsupported, "this agent doesn't run jobs"))
+    }
+
+    /// The job manager, if the job exists.
+    fn job(&self, id: &JobId) -> std::result::Result<&Arc<JobManager>, RemoteError> {
+        let jobs = self.jobs()?;
+        if jobs.store().exists(id) {
+            Ok(jobs)
+        } else {
+            Err(RemoteError::new(
+                ErrorCode::NotFound,
+                format!("no job {id}"),
+            ))
+        }
+    }
+
     /// The paired controller with this id. Fails closed: if the state can't be read,
     /// nobody is treated as paired.
     fn paired_controller(&self, id: &DeviceId) -> Option<PairedController> {
