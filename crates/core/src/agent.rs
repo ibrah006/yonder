@@ -46,6 +46,8 @@ pub struct AgentConfig {
     pub net: NetConfig,
     /// Overrides the saved machine name for this run.
     pub name: Option<String>,
+    /// How to run jobs. `None` refuses job commands (useful for tests of other features).
+    pub jobs: Option<JobsConfig>,
 }
 
 /// A controller asking to pair, shown to the person at the machine.
