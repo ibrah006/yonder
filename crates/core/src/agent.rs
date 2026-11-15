@@ -226,6 +226,23 @@ impl Agent {
         Ok(self.inner.load_state()?.controllers)
     }
 
+    /// The job manager, if this agent runs jobs.
+    pub fn jobs(&self) -> Option<&Arc<JobManager>> {
+        self.inner.jobs.as_ref()
+    }
+
+    pub fn audit_log(&self) -> &AuditLog {
+        &self.inner.audit
+    }
+
+    /// Pauses or resumes new jobs. Running jobs carry on.
+    pub fn set_paused(&self, paused: bool) -> Result<()> {
+        let _write = lock(&self.inner.state_write);
+        let mut state = self.inner.load_state()?;
+        state.paused = paused;
+        state.save(&self.inner.state_path)
+    }
+
     pub fn subscribe(&self) -> broadcast::Receiver<AgentEvent> {
         self.inner.events.subscribe()
     }
