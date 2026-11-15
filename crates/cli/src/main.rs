@@ -68,6 +68,22 @@ enum Cmd {
         /// Job id or its start; default: the latest job.
         job: Option<String>,
     },
+    /// Open a shell on a machine, or reattach to one. It keeps running when you detach
+    /// (Ctrl-]) or lose the connection.
+    ///
+    /// Examples: `yonder shell win` (new), `yonder shell win last` (reattach).
+    Shell {
+        machine: String,
+        /// Shell to reattach to: its id, the start of it, or `last`.
+        session: Option<String>,
+    },
+    /// List shells on a machine.
+    Shells {
+        machine: String,
+        /// End this shell (id, start of it, or `last`).
+        #[arg(long, value_name = "SESSION")]
+        close: Option<String>,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
