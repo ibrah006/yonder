@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::Os;
 use crate::error::{Error, Result};
 use crate::identity::{DeviceId, DeviceKey};
+use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::permissions::{Permission, Permissions};
 
 /// ALPN for normal use by paired controllers.
