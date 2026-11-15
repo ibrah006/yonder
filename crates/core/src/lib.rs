@@ -14,6 +14,7 @@ pub mod agent;
 pub mod controller;
 pub mod error;
 pub mod identity;
+pub mod jobs;
 pub mod net;
 pub mod permissions;
 pub mod protocol;
