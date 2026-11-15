@@ -1,0 +1,16 @@
+[package]
+name = "yonder-agent"
+description = "Yonder agent: runs on a machine you want to use remotely"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+yonder-core.workspace = true
+clap.workspace = true
+
+[lints]
+workspace = true
