@@ -49,6 +49,17 @@ pub enum Command {
     Ping,
     /// Describe the machine and what this controller may do there.
     Info,
+    /// Start a job. Answered with [`Response::Job`].
+    RunJob(JobSpec),
+    /// All jobs on the machine, newest first. Answered with [`Response::Jobs`].
+    ListJobs,
+    /// One job's details. Answered with [`Response::Job`].
+    GetJob(JobId),
+    /// A job's output from byte `from`. Answered with [`Response::LogChunk`]s and a final
+    /// [`Response::LogEnd`]. With `follow`, keeps streaming until the job finishes.
+    JobLogs { id: JobId, from: u64, follow: bool },
+    /// Stop a queued or running job. Answered with [`Response::Job`].
+    CancelJob(JobId),
 }
 
 impl Command {
