@@ -50,6 +50,7 @@ impl NetConfig {
         NetConfig {
             relay: RelayChoice::Disabled,
             address_lookup: false,
+            port: None,
         }
     }
 
