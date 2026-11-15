@@ -314,4 +314,26 @@ mod tests {
     fn cli_definition_is_valid() {
         Args::command().debug_assert();
     }
+
+    #[test]
+    fn run_takes_everything_after_the_separator() {
+        let args = Args::try_parse_from([
+            "yonder",
+            "run",
+            "win",
+            "--env",
+            "A=1",
+            "--",
+            "flutter",
+            "build",
+            "--release",
+        ])
+        .unwrap();
+        let Cmd::Run(run) = args.command else {
+            panic!("expected run")
+        };
+        assert_eq!(run.machine, "win");
+        assert_eq!(run.command, ["flutter", "build", "--release"]);
+        assert_eq!(run.env, ["A=1"]);
+    }
 }
