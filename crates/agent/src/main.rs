@@ -240,6 +240,7 @@ async fn start(
             state: state.clone(),
             net,
             name,
+            jobs: Some(jobs),
         },
         approver_fn(ask_at_terminal),
     )
