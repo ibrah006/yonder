@@ -116,6 +116,7 @@ async fn async_main(args: Args) -> Result<ExitCode> {
     let net = NetConfig {
         relay: NetConfig::parse_relay(&args.relay)?,
         address_lookup: !args.no_lookup,
+        port: None,
     };
     let name = match &args.command {
         Cmd::Pair { name, .. } => name.clone(),
