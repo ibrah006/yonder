@@ -67,6 +67,11 @@ impl Command {
     pub fn required_permission(&self) -> Option<Permission> {
         match self {
             Command::Ping | Command::Info => None,
+            Command::RunJob(_)
+            | Command::ListJobs
+            | Command::GetJob(_)
+            | Command::JobLogs { .. }
+            | Command::CancelJob(_) => Some(Permission::RunJobs),
         }
     }
 
