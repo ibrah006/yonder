@@ -526,8 +526,13 @@ async fn pair_with(mut client: ipc::Client, minutes: u64) -> Result<()> {
     }
 }
 
-async fn wait_for_ctrl_c(agent: &Agent) -> Result<()> {
-    tokio::signal::ctrl_c()
+async fn ask_yes_no(prompt: &str) -> bool {
+    use std::io::Write;
+    print!("{prompt}");
+    let _ = std::io::stdout().flush();
+    let mut line = String::new();
+    match BufReader::new(tokio::io::stdin())
+        .read_line(&mut line)
         .await
         .context("couldn't listen for Ctrl-C")?;
     println!("Stopping…");
