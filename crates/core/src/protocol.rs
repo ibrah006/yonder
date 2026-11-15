@@ -414,11 +414,9 @@ pub async fn write_message<T: Serialize>(send: &mut SendStream, message: &T) -> 
 
 /// Reads exactly one message.
 pub async fn read_message<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<T> {
-    let bytes = recv
-        .read_to_end(MAX_MESSAGE_BYTES)
-        .await
-        .map_err(Error::network)?;
-    postcard::from_bytes(&bytes).map_err(Error::protocol)
+    read_frame(recv)
+        .await?
+        .ok_or_else(|| Error::Protocol("the stream ended before a message arrived".into()))
 }
 
 #[cfg(test)]
