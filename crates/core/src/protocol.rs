@@ -104,6 +104,10 @@ impl Command {
             Command::GetJob(_) => "get_job",
             Command::JobLogs { .. } => "job_logs",
             Command::CancelJob(_) => "cancel_job",
+            Command::OpenTerminal { session: None, .. } => "new_terminal",
+            Command::OpenTerminal { .. } => "attach_terminal",
+            Command::ListTerminals => "list_terminals",
+            Command::CloseTerminal(_) => "close_terminal",
         }
     }
 
