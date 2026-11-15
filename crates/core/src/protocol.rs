@@ -80,6 +80,22 @@ impl Command {
         match self {
             Command::Ping => "ping",
             Command::Info => "info",
+            Command::RunJob(_) => "run_job",
+            Command::ListJobs => "list_jobs",
+            Command::GetJob(_) => "get_job",
+            Command::JobLogs { .. } => "job_logs",
+            Command::CancelJob(_) => "cancel_job",
+        }
+    }
+
+    /// Details for the audit log: the command line for new jobs, the job id otherwise.
+    pub fn detail(&self) -> Option<String> {
+        match self {
+            Command::Ping | Command::Info | Command::ListJobs => None,
+            Command::RunJob(spec) => Some(spec.summary()),
+            Command::GetJob(id) | Command::CancelJob(id) | Command::JobLogs { id, .. } => {
+                Some(id.to_string())
+            }
         }
     }
 }
