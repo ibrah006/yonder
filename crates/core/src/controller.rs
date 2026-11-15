@@ -202,6 +202,79 @@ impl Controller {
         }
     }
 
+    /// Starts a job. It runs on the machine whether or not this device stays connected.
+    pub async fn run(&self, machine: &PairedMachine, spec: JobSpec) -> Result<JobInfo> {
+        expect_job(self.request(machine, Command::RunJob(spec)).await?)
+    }
+
+    /// All jobs on the machine, newest first.
+    pub async fn jobs(&self, machine: &PairedMachine) -> Result<Vec<JobInfo>> {
+        match self.request(machine, Command::ListJobs).await? {
+            Response::Jobs(jobs) => Ok(jobs),
+            other => Err(unexpected("jobs", &other)),
+        }
+    }
+
+    pub async fn job(&self, machine: &PairedMachine, id: &JobId) -> Result<JobInfo> {
+        expect_job(self.request(machine, Command::GetJob(id.clone())).await?)
+    }
+
+    /// Stops a queued or running job.
+    pub async fn cancel(&self, machine: &PairedMachine, id: &JobId) -> Result<JobInfo> {
+        expect_job(
+            self.request(machine, Command::CancelJob(id.clone()))
+                .await?,
+        )
+    }
+
+    /// Reads a job's output from byte `from`, calling `on_chunk(offset, bytes)` for each
+    /// piece. With `follow`, keeps going until the job finishes. Returns the job as it was
+    /// when the stream ended.
+    ///
+    /// If the connection drops, the error comes back and the caller can call again with
+    /// `from` set to the end of the last chunk it received: nothing is lost or repeated.
+    pub async fn logs(
+        &self,
+        machine: &PairedMachine,
+        id: &JobId,
+        from: u64,
+        follow: bool,
+        mut on_chunk: impl FnMut(u64, &[u8]),
+    ) -> Result<JobInfo> {
+        let conn = self.connection(machine).await?;
+        let command = Command::JobLogs {
+            id: id.clone(),
+            from,
+            follow,
+        };
+        let signed = SignedRequest::new(&self.key, machine.id, command);
+        let result: Result<JobInfo> = async {
+            let (mut send, mut recv) = conn.open_bi().await.map_err(Error::network)?;
+            write_message(&mut send, &signed).await?;
+            loop {
+                match read_frame::<Response>(&mut recv).await? {
+                    Some(Response::LogChunk { offset, data }) => on_chunk(offset, &data),
+                    Some(Response::LogEnd { job }) => return Ok(job),
+                    Some(Response::Error(err)) => return Err(Error::Remote(err)),
+                    Some(other) => return Err(unexpected("log output", &other)),
+                    None => {
+                        return Err(Error::Protocol(
+                            "the log stream ended early; try again to resume".into(),
+                        ));
+                    }
+                }
+            }
+        }
+        .await;
+        if result.is_err() {
+            self.connections.lock().await.remove(&machine.id);
+            if let Some(err) = explain_close(&conn) {
+                return Err(err);
+            }
+        }
+        result
+    }
+
     /// Closes all connections.
     pub async fn close(&self) {
         self.connections.lock().await.clear();
