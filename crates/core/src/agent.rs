@@ -489,6 +489,55 @@ async fn decide(
     })
 }
 
+/// Sends a job's output from `from`, then (with `follow`) new output as it's written,
+/// ending with [`Response::LogEnd`] once the job has finished and everything was sent.
+async fn stream_logs(
+    inner: &Inner,
+    id: &JobId,
+    mut from: u64,
+    follow: bool,
+    send: &mut SendStream,
+) -> Result<()> {
+    let store = match inner.jobs() {
+        Ok(jobs) => jobs.store().clone(),
+        Err(err) => return write_message(send, &Response::Error(err)).await,
+    };
+    loop {
+        let chunk = {
+            let (store, id) = (store.clone(), id.clone());
+            tokio::task::spawn_blocking(move || store.read_log(&id, from, LOG_CHUNK_BYTES))
+                .await
+                .map_err(crate::Error::network)??
+        };
+        if !chunk.is_empty() {
+            let len = chunk.len() as u64;
+            write_frame(
+                send,
+                &Response::LogChunk {
+                    offset: from,
+                    data: chunk,
+                },
+            )
+            .await?;
+            from += len;
+            continue;
+        }
+        let job = store.info(id)?;
+        if job.log_bytes > from {
+            // Output arrived between the read and the status check.
+            continue;
+        }
+        if job.status.state.is_finished() || !follow {
+            return write_message(send, &Response::LogEnd { job }).await;
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(LOG_POLL) => {}
+            // The controller went away; it can reattach from where it got to.
+            _ = send.stopped() => return Ok(()),
+        }
+    }
+}
+
 async fn serve_pairing(inner: Arc<Inner>, conn: Connection) {
     let peer = conn.remote_id();
     let Ok((mut send, mut recv)) = conn.accept_bi().await else {
