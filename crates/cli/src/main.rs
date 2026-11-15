@@ -195,7 +195,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
                 println!(
                     "No machines yet. Run `yonder-agent pair` on a machine, then `yonder pair <ticket>` here."
                 );
-                return Ok(());
+                return Ok(ExitCode::SUCCESS);
             }
             let width = machines
                 .iter()
