@@ -38,6 +38,7 @@ impl Default for NetConfig {
         NetConfig {
             relay: RelayChoice::Default,
             address_lookup: true,
+            port: None,
         }
     }
 }
