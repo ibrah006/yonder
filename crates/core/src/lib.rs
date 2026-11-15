@@ -8,6 +8,20 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
+pub mod agent;
+pub mod controller;
+pub mod error;
+pub mod identity;
+pub mod net;
+pub mod permissions;
+pub mod protocol;
+pub mod store;
+pub mod ticket;
+
+pub use error::{Error, Result};
+
 /// Version of the wire protocol spoken between controllers and agents.
 ///
 /// Bump on any incompatible change. Peers with different versions refuse to talk
