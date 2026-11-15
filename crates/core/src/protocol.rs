@@ -272,6 +272,8 @@ pub struct MachineInfo {
     pub agent_version: String,
     /// What the asking controller may do on this machine.
     pub your_permissions: Permissions,
+    /// The owner paused new jobs on this machine.
+    pub paused: bool,
 }
 
 /// Why the agent refused or failed a request.
