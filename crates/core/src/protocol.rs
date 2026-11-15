@@ -61,6 +61,21 @@ pub enum Command {
     JobLogs { id: JobId, from: u64, follow: bool },
     /// Stop a queued or running job. Answered with [`Response::Job`].
     CancelJob(JobId),
+    /// Start a new shell (`session: None`) or attach to one. Answered with
+    /// [`Response::TerminalOpened`], then [`Response::TerminalOutput`]s from byte `from`
+    /// (default: all kept scrollback) and finally [`Response::TerminalExit`]. The client
+    /// sends [`crate::terminal::TerminalInput`] frames on the same stream; finishing it
+    /// detaches.
+    OpenTerminal {
+        session: Option<SessionId>,
+        cols: u16,
+        rows: u16,
+        from: Option<u64>,
+    },
+    /// Terminal sessions on the machine. Answered with [`Response::Terminals`].
+    ListTerminals,
+    /// End a session's shell. Answered with [`Response::Terminal`].
+    CloseTerminal(SessionId),
 }
 
 impl Command {
