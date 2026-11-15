@@ -191,7 +191,7 @@ impl Controller {
         let started = Instant::now();
         match self.request(machine, Command::Ping).await? {
             Response::Pong => Ok(started.elapsed()),
-            other => Err(Error::Protocol(format!("expected pong, got {other:?}"))),
+            other => Err(unexpected("pong", &other)),
         }
     }
 
