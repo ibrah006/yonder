@@ -386,13 +386,17 @@ async fn serve_controller(inner: Arc<Inner>, conn: Connection) {
     }
 }
 
-async fn handle_request(
-    inner: &Inner,
-    peer: &DeviceId,
-    recv: &mut iroh::endpoint::RecvStream,
-) -> Response {
-    match handle_request_inner(inner, peer, recv).await {
-        Ok(response) => response,
+/// What a request turned into.
+enum Reply {
+    One(Box<Response>),
+    Logs { id: JobId, from: u64, follow: bool },
+}
+
+/// Handles one request stream: decide, record in the audit log, answer.
+async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut recv: RecvStream) {
+    let mut audit = AuditEntry::new(peer, "?", "ok");
+    let reply = match decide(inner, &peer, &mut recv, &mut audit).await {
+        Ok(reply) => reply,
         Err(err) => {
             debug!(peer = %peer.fmt_short(), "request refused: {err}");
             Response::Error(err)
