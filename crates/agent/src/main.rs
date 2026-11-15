@@ -97,6 +97,19 @@ enum Cmd {
     JobRun { job_dir: PathBuf },
 }
 
+#[derive(Debug, Subcommand)]
+enum ServiceAction {
+    /// Install (or update) and start the service; it then starts with Windows.
+    Install,
+    /// Stop and remove the service. Paired devices and job history are kept.
+    Uninstall,
+    Start,
+    Stop,
+    /// Entry point used by the service manager.
+    #[command(hide = true)]
+    Run,
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     if let Cmd::JobRun { job_dir } = &args.command {
