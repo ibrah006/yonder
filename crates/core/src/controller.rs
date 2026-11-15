@@ -15,7 +15,7 @@ use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::net::{self, NetConfig};
 use crate::protocol::{
     CONTROL_ALPN, Command, ErrorCode, MachineInfo, PAIR_ALPN, PairRequest, PairResponse,
-    RemoteError, Response, SignedRequest, close_code, read_message, write_message,
+    RemoteError, Response, SignedRequest, close_code, read_frame, read_message, write_message,
 };
 use crate::store::{ControllerState, PairedMachine, StateDir, default_device_name, now_secs};
 use crate::ticket::{PairingTicket, pairing_proof};
