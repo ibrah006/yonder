@@ -94,10 +94,16 @@ pub(crate) async fn bind(
     let mut builder = builder
         .secret_key(key.secret_key())
         .alpns(alpns)
-        .relay_mode(relay_mode)
-        .bind()
-        .await
-        .map_err(Error::network)
+        .relay_mode(relay_mode);
+    if let Some(port) = config.port {
+        builder = builder
+            .clear_ip_transports()
+            .bind_addr(SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)))
+            .map_err(Error::network)?
+            .bind_addr(SocketAddr::from((std::net::Ipv6Addr::UNSPECIFIED, port)))
+            .map_err(Error::network)?;
+    }
+    builder.bind().await.map_err(Error::network)
 }
 
 /// The endpoint's address on this computer's loopback interface. Reaches it from the same
