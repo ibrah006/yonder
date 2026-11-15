@@ -442,11 +442,22 @@ async fn pair(
     jobs: JobsConfig,
     minutes: u64,
 ) -> Result<()> {
-    let agent = start(state, net, name, jobs).await?;
-    let mut events = agent.subscribe();
-    let minutes = minutes.max(1);
-    let ttl = Duration::from_secs(minutes * 60);
-    let ticket = agent.open_pairing(ttl).await;
+    let Some(_lock) = InstanceLock::try_acquire(state)? else {
+        // An agent is running (or still starting): pair through it.
+        return pair_with(connect_with_retry(state).await?, minutes).await;
+    };
+    let (agent, local) = start_local(state, net, name, jobs).await?;
+    let client = connect_with_retry(state).await?;
+    let result = pair_with(client, minutes).await;
+    if result.is_ok() {
+        println!("Still serving paired devices. Press Ctrl-C to stop.");
+        ctrl_c().await;
+        println!("Stopping… (running jobs carry on)");
+    }
+    agent.shutdown().await;
+    local.abort();
+    result
+}
 
     println!(
         "This machine: {}  (fingerprint {})",
