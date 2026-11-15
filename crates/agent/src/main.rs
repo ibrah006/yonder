@@ -90,6 +90,15 @@ enum Cmd {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    if let Cmd::JobRun { job_dir } = &args.command {
+        // The runner is a plain process: no async runtime, no networking.
+        let state = yonder_core::jobs::runner::run(job_dir)?;
+        std::process::exit(if state.is_finished() { 0 } else { 1 });
+    }
+    tokio::runtime::Runtime::new()?.block_on(async_main(args))
+}
+
+async fn async_main(args: Args) -> Result<()> {
     init_logging();
     let state = StateDir::new(match &args.state_dir {
         Some(dir) => dir.clone(),
