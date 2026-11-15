@@ -175,11 +175,7 @@ async fn async_main(args: Args) -> Result<()> {
     let service_args = args_for_service(&args);
 
     match args.command {
-        Cmd::Serve { name } => {
-            let agent = start(&state, net, name, jobs).await?;
-            println!("{} is ready. Press Ctrl-C to stop.", agent.name());
-            wait_for_ctrl_c(&agent).await
-        }
+        Cmd::Serve { name } => serve(&state, net, name, jobs).await,
         Cmd::Pair { minutes, name } => pair(&state, net, name, jobs, minutes).await,
         Cmd::Controllers => list_controllers(&state),
         Cmd::Revoke { device } => revoke(&state, &device),
