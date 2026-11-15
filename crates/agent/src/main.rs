@@ -88,8 +88,7 @@ enum Cmd {
     JobRun { job_dir: PathBuf },
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
     init_logging();
     let state = StateDir::new(match &args.state_dir {
