@@ -20,6 +20,7 @@ pub mod net;
 pub mod permissions;
 pub mod protocol;
 pub mod store;
+pub mod terminal;
 pub mod ticket;
 
 pub use error::{Error, Result};
