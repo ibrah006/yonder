@@ -378,12 +378,7 @@ async fn serve_controller(inner: Arc<Inner>, conn: Connection) {
 
     while let Ok((send, recv)) = conn.accept_bi().await {
         let inner = inner.clone();
-        tokio::spawn(async move {
-            let response = handle_request(&inner, &peer, &mut recv).await;
-            if let Err(err) = write_message(&mut send, &response).await {
-                debug!("could not send response: {err}");
-            }
-        });
+        tokio::spawn(async move { handle_stream(&inner, peer, send, recv).await });
     }
 
     if let Some(conns) = lock(&inner.connections).get_mut(&peer) {
