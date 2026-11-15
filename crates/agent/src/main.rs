@@ -109,6 +109,12 @@ async fn async_main(args: Args) -> Result<()> {
         relay: NetConfig::parse_relay(&args.relay)?,
         address_lookup: !args.no_lookup,
     };
+    let jobs = JobsConfig {
+        runner: RunnerCommand::agent_binary(
+            std::env::current_exe().context("couldn't find the agent's own program file")?,
+        ),
+        max_parallel: args.max_jobs.max(1),
+    };
 
     match args.command {
         Cmd::Serve { name } => {
