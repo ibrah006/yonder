@@ -1,0 +1,28 @@
+name: Private files guard
+
+# Fails if private planning docs are tracked, or if the ignore rule is removed.
+on:
+  push:
+  pull_request:
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No tracked files under private/
+        run: |
+          tracked=$(git ls-files -- 'private/*')
+          if [ -n "$tracked" ]; then
+            echo "::error::Private files are tracked and must be removed from git:"
+            echo "$tracked"
+            exit 1
+          fi
+
+      - name: Ignore rule still present
+        run: |
+          if ! grep -qxF '/private/' .gitignore; then
+            echo "::error::.gitignore no longer ignores /private/ — restore the rule."
+            exit 1
+          fi
