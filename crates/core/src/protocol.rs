@@ -378,6 +378,8 @@ pub async fn write_frame<T: Serialize>(send: &mut SendStream, message: &T) -> Re
     if bytes.len() > MAX_MESSAGE_BYTES {
         return Err(Error::Protocol("message too large".into()));
     }
+    let len = (bytes.len() as u32).to_le_bytes();
+    send.write_all(&len).await.map_err(Error::network)?;
     send.write_all(&bytes).await.map_err(Error::network)?;
     send.finish().map_err(Error::network)?;
     Ok(())
