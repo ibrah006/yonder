@@ -287,6 +287,18 @@ pub enum Response {
     LogEnd {
         job: JobInfo,
     },
+    TerminalOpened(TerminalInfo),
+    /// Terminal output starting at byte `offset` of the session.
+    TerminalOutput {
+        offset: u64,
+        data: Vec<u8>,
+    },
+    /// The shell exited; the stream ends.
+    TerminalExit {
+        code: Option<u32>,
+    },
+    Terminals(Vec<TerminalInfo>),
+    Terminal(TerminalInfo),
 }
 
 /// Description of a machine, as seen by one controller.
