@@ -198,7 +198,7 @@ impl Controller {
     pub async fn info(&self, machine: &PairedMachine) -> Result<MachineInfo> {
         match self.request(machine, Command::Info).await? {
             Response::Info(info) => Ok(info),
-            other => Err(Error::Protocol(format!("expected info, got {other:?}"))),
+            other => Err(unexpected("info", &other)),
         }
     }
 
