@@ -447,8 +447,8 @@ async fn decide(
     info!(controller = %controller.name, command = body.command.name(), "request");
     let internal = |e: crate::Error| RemoteError::new(ErrorCode::Internal, e.to_string());
     Ok(match body.command {
-        Command::Ping => Response::Pong,
-        Command::Info => Response::Info(MachineInfo {
+        Command::Ping => Reply::One(Box::new(Response::Pong)),
+        Command::Info => Reply::One(Box::new(Response::Info(MachineInfo {
             name: inner.machine_name.clone(),
             os: Os::current(),
             agent_version: crate::VERSION.to_string(),
