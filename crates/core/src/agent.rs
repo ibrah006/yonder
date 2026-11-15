@@ -425,6 +425,10 @@ async fn decide(
         .await
         .map_err(|e| RemoteError::new(ErrorCode::BadRequest, e.to_string()))?;
     let body = request.verify(peer, &inner.id, now_ms(), &mut lock(&inner.replay))?;
+    audit.command = body.command.name().to_string();
+    audit.detail = body.command.detail();
+    audit.request = Some(data_encoding::HEXLOWER.encode(&request.body));
+    audit.signature = Some(data_encoding::HEXLOWER.encode(&request.signature.to_bytes()));
 
     // Re-check on every request: the controller may have been revoked mid-connection.
     let controller = inner
