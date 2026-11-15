@@ -148,6 +148,31 @@ fn settings(args: &Args) -> Result<(NetConfig, JobsConfig)> {
         ),
         max_parallel: args.max_jobs.max(1),
     };
+    Ok((net, jobs))
+}
+
+#[cfg(windows)]
+fn run_as_service(args: Args) -> Result<()> {
+    let state = state_dir(&args)?;
+    let _ = service::secure_dir(state.path());
+    init_logging(Some(&state.path().join("agent.log")));
+    let (net, jobs) = settings(&args)?;
+    service::run(Box::new(move |stop| {
+        tokio::runtime::Runtime::new()?.block_on(run_until(&state, net, None, jobs, async {
+            let _ = stop.await;
+        }))
+    }))
+}
+
+#[cfg(not(windows))]
+fn run_as_service(_args: Args) -> Result<()> {
+    bail!("the service is Windows-only for now; use `yonder-agent serve`")
+}
+
+async fn async_main(args: Args) -> Result<()> {
+    let state = state_dir(&args)?;
+    let (net, jobs) = settings(&args)?;
+    let service_args = args_for_service(&args);
 
     match args.command {
         Cmd::Serve { name } => {
