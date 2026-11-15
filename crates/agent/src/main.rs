@@ -229,7 +229,12 @@ fn init_logging() {
         .init();
 }
 
-async fn start(state: &StateDir, net: NetConfig, name: Option<String>) -> Result<Agent> {
+async fn start(
+    state: &StateDir,
+    net: NetConfig,
+    name: Option<String>,
+    jobs: JobsConfig,
+) -> Result<Agent> {
     Agent::start(
         AgentConfig {
             state: state.clone(),
