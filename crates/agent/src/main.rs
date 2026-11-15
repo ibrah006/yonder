@@ -37,6 +37,10 @@ struct Args {
     #[arg(long, global = true)]
     no_lookup: bool,
 
+    /// How many jobs may run at once; the rest wait their turn.
+    #[arg(long, global = true, default_value_t = 2)]
+    max_jobs: usize,
+
     #[command(subcommand)]
     command: Cmd,
 }
