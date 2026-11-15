@@ -368,8 +368,12 @@ impl fmt::Display for PairRejection {
 // ---------------------------------------------------------------------------
 // Framing
 
-/// Writes one message and finishes the stream.
-pub async fn write_message<T: Serialize>(send: &mut SendStream, message: &T) -> Result<()> {
+//
+// Every message is a 4-byte little-endian length followed by the postcard bytes, so one
+// stream can carry several messages (a log stream) as well as just one.
+
+/// Writes one message without finishing the stream.
+pub async fn write_frame<T: Serialize>(send: &mut SendStream, message: &T) -> Result<()> {
     let bytes = postcard::to_stdvec(message).expect("messages are always serializable");
     if bytes.len() > MAX_MESSAGE_BYTES {
         return Err(Error::Protocol("message too large".into()));
