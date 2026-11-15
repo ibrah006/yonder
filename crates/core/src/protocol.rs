@@ -88,6 +88,9 @@ impl Command {
             | Command::GetJob(_)
             | Command::JobLogs { .. }
             | Command::CancelJob(_) => Some(Permission::RunJobs),
+            Command::OpenTerminal { .. } | Command::ListTerminals | Command::CloseTerminal(_) => {
+                Some(Permission::Terminal)
+            }
         }
     }
 
