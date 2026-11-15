@@ -402,6 +402,16 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
             audit.outcome = format!("{:?}", err.code);
             Reply::One(Box::new(Response::Error(err)))
         }
+    };
+    if let Err(err) = inner.audit.record(&audit) {
+        warn!("could not write the audit log: {err}");
+    }
+    let sent = match reply {
+        Reply::One(response) => write_message(&mut send, &*response).await,
+        Reply::Logs { id, from, follow } => stream_logs(inner, &id, from, follow, &mut send).await,
+    };
+    if let Err(err) = sent {
+        debug!("could not send response: {err}");
     }
 }
 
