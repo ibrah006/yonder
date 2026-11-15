@@ -167,6 +167,14 @@ impl StateDir {
     pub fn controller_file(&self) -> PathBuf {
         self.0.join("controller.json")
     }
+
+    pub fn jobs_dir(&self) -> PathBuf {
+        self.0.join("jobs")
+    }
+
+    pub fn audit_file(&self) -> PathBuf {
+        self.0.join("audit.log")
+    }
 }
 
 /// A controller that was approved on this machine.
