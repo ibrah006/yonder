@@ -300,6 +300,17 @@ impl Controller {
     }
 }
 
+fn unexpected(wanted: &str, got: &Response) -> Error {
+    Error::Protocol(format!("expected {wanted}, got {got:?}"))
+}
+
+fn expect_job(response: Response) -> Result<JobInfo> {
+    match response {
+        Response::Job(job) => Ok(job),
+        other => Err(unexpected("a job", &other)),
+    }
+}
+
 /// Turns the agent closing the connection on us into a clear error.
 fn explain_close(conn: &Connection) -> Option<Error> {
     let Some(ConnectionError::ApplicationClosed(ApplicationClose { error_code, .. })) =
