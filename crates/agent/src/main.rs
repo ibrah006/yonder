@@ -129,9 +129,8 @@ fn main() -> Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async_main(args))
 }
 
-async fn async_main(args: Args) -> Result<()> {
-    init_logging();
-    let state = StateDir::new(match &args.state_dir {
+fn state_dir(args: &Args) -> Result<StateDir> {
+    Ok(StateDir::new(match &args.state_dir {
         Some(dir) => dir.clone(),
         None => default_agent_dir()
             .context("couldn't find a folder for agent state; pass --state-dir")?,
