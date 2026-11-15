@@ -327,6 +327,10 @@ mod tests {
         assert_eq!(format_date(0), "1970-01-01");
         assert_eq!(format_date(951_782_400), "2000-02-29");
         assert_eq!(format_date(1_794_787_200), "2026-11-16");
+        assert_eq!(
+            format_datetime_ms(1_794_787_200_000 + 14 * 3_600_000 + 3 * 60_000),
+            "2026-11-16 14:03"
+        );
     }
 
     #[test]
