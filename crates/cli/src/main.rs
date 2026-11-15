@@ -221,6 +221,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             println!("os:          {}", info.os);
             println!("agent:       {}", info.agent_version);
             println!("id:          {}", machine.id);
+            println!("paused:      {}", if info.paused { "yes" } else { "no" });
             println!("permissions: {}", info.your_permissions);
         }
         Cmd::Forget { machine } => {
