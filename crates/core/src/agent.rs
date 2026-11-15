@@ -418,8 +418,9 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
 async fn decide(
     inner: &Inner,
     peer: &DeviceId,
-    recv: &mut iroh::endpoint::RecvStream,
-) -> std::result::Result<Response, RemoteError> {
+    recv: &mut RecvStream,
+    audit: &mut AuditEntry,
+) -> std::result::Result<Reply, RemoteError> {
     let request: SignedRequest = read_message(recv)
         .await
         .map_err(|e| RemoteError::new(ErrorCode::BadRequest, e.to_string()))?;
