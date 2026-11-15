@@ -399,7 +399,8 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
         Ok(reply) => reply,
         Err(err) => {
             debug!(peer = %peer.fmt_short(), "request refused: {err}");
-            Response::Error(err)
+            audit.outcome = format!("{:?}", err.code);
+            Reply::One(Box::new(Response::Error(err)))
         }
     }
 }
