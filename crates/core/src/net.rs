@@ -91,7 +91,7 @@ pub(crate) async fn bind(
         RelayChoice::Custom(urls) => RelayMode::custom(urls.iter().cloned()),
         RelayChoice::Disabled => RelayMode::Disabled,
     };
-    builder
+    let mut builder = builder
         .secret_key(key.secret_key())
         .alpns(alpns)
         .relay_mode(relay_mode)
