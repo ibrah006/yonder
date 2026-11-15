@@ -6,7 +6,7 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use iroh::Endpoint;
-use iroh::endpoint::{ApplicationClose, Connection, ConnectionError};
+use iroh::endpoint::{ApplicationClose, Connection, ConnectionError, RecvStream, SendStream};
 
 use crate::Os;
 use crate::agent::{APPROVAL_TIMEOUT, clean_name};
