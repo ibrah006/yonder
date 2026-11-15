@@ -251,6 +251,17 @@ pub enum Response {
     Pong,
     Info(MachineInfo),
     Error(RemoteError),
+    Job(JobInfo),
+    Jobs(Vec<JobInfo>),
+    /// Part of a job's output, starting at byte `offset`.
+    LogChunk {
+        offset: u64,
+        data: Vec<u8>,
+    },
+    /// End of a log stream, with the job's state at that moment.
+    LogEnd {
+        job: JobInfo,
+    },
 }
 
 /// Description of a machine, as seen by one controller.
