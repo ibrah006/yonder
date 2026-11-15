@@ -393,6 +393,7 @@ async fn serve_controller(inner: Arc<Inner>, conn: Connection) {
 enum Reply {
     One(Box<Response>),
     Logs { id: JobId, from: u64, follow: bool },
+    Terminal { session: Arc<Session>, from: u64 },
 }
 
 /// Handles one request stream: decide, record in the audit log, answer.
