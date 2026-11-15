@@ -39,6 +39,10 @@ struct Args {
     #[arg(long, global = true)]
     no_lookup: bool,
 
+    /// Fixed UDP port to listen on (default: any free port). Useful with strict firewalls.
+    #[arg(long, global = true, env = "YONDER_PORT")]
+    port: Option<u16>,
+
     /// How many jobs may run at once; the rest wait their turn.
     #[arg(long, global = true, default_value_t = 2)]
     max_jobs: usize,
