@@ -415,7 +415,7 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
     }
 }
 
-async fn handle_request_inner(
+async fn decide(
     inner: &Inner,
     peer: &DeviceId,
     recv: &mut iroh::endpoint::RecvStream,
