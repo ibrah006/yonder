@@ -71,6 +71,21 @@ enum Cmd {
     },
     /// Show this machine's id and fingerprint.
     Id,
+    /// Refuse new jobs until `resume`. Running jobs carry on.
+    Pause,
+    /// Accept new jobs again.
+    Resume,
+    /// List jobs on this machine.
+    Jobs,
+    /// Show recent requests from paired devices.
+    Audit {
+        /// How many entries to show.
+        #[arg(long, default_value_t = 20)]
+        count: usize,
+    },
+    /// Runs one job. Started by the agent; not for direct use.
+    #[command(hide = true)]
+    JobRun { job_dir: PathBuf },
 }
 
 #[tokio::main]
