@@ -175,6 +175,10 @@ impl Agent {
         )
         .await?;
         let (events, _) = broadcast::channel(32);
+        let jobs = config
+            .jobs
+            .clone()
+            .map(|jobs| JobManager::start(JobStore::new(config.state.jobs_dir()), jobs));
         let inner = Arc::new(Inner {
             id: key.id(),
             endpoint,
