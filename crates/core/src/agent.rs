@@ -491,6 +491,41 @@ async fn decide(
             inner.job(&id)?;
             Reply::Logs { id, from, follow }
         }
+        Command::OpenTerminal {
+            session,
+            cols,
+            rows,
+            from,
+        } => {
+            let session = match session {
+                None => {
+                    let session = inner
+                        .terminals
+                        .open(&controller.name, cols, rows)
+                        .map_err(internal)?;
+                    audit.detail = Some(session.id().to_string());
+                    session
+                }
+                Some(id) => {
+                    let session = inner.terminals.get(&id).ok_or_else(|| {
+                        RemoteError::new(ErrorCode::NotFound, format!("no terminal session {id}"))
+                    })?;
+                    session.resize(cols, rows);
+                    session
+                }
+            };
+            Reply::Terminal {
+                session,
+                from: from.unwrap_or(0),
+            }
+        }
+        Command::ListTerminals => Reply::One(Box::new(Response::Terminals(inner.terminals.list()))),
+        Command::CloseTerminal(id) => {
+            let info = inner.terminals.close(&id).ok_or_else(|| {
+                RemoteError::new(ErrorCode::NotFound, format!("no terminal session {id}"))
+            })?;
+            Reply::One(Box::new(Response::Terminal(info)))
+        }
     })
 }
 
