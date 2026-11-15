@@ -434,6 +434,7 @@ async fn decide(
     let controller = inner
         .paired_controller(peer)
         .ok_or_else(|| RemoteError::new(ErrorCode::NotPaired, "this device is not paired"))?;
+    audit.controller_name = Some(controller.name.clone());
     if let Some(needed) = body.command.required_permission()
         && !controller.permissions.contains(needed)
     {
