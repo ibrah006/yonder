@@ -20,6 +20,7 @@ use crate::protocol::{
     write_message,
 };
 use crate::store::{ControllerState, PairedMachine, StateDir, default_device_name, now_secs};
+use crate::terminal::{SessionId, TerminalInfo, TerminalInput};
 use crate::ticket::{PairingTicket, pairing_proof};
 
 /// How long to try reaching a machine before giving up.
