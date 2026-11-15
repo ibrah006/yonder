@@ -286,6 +286,12 @@ pub enum ErrorCode {
     ClockSkew,
     BadRequest,
     Internal,
+    /// The owner paused new jobs on this machine.
+    Paused,
+    /// No such job.
+    NotFound,
+    /// This agent can't do that (for example, it was started without job support).
+    Unsupported,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
