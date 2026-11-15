@@ -28,6 +28,9 @@ pub struct NetConfig {
     /// Publish and look up device addresses through number 0's DNS service, so a device
     /// can be found by its id after its address changes.
     pub address_lookup: bool,
+    /// Fixed UDP port to listen on (IPv4 and IPv6), e.g. to allow it through a firewall.
+    /// `None` picks a free port.
+    pub port: Option<u16>,
 }
 
 impl Default for NetConfig {
