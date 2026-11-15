@@ -6,6 +6,8 @@
 mod jobs;
 
 use std::path::PathBuf;
+use std::process::ExitCode;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
