@@ -134,7 +134,10 @@ fn state_dir(args: &Args) -> Result<StateDir> {
         Some(dir) => dir.clone(),
         None => default_agent_dir()
             .context("couldn't find a folder for agent state; pass --state-dir")?,
-    });
+    }))
+}
+
+fn settings(args: &Args) -> Result<(NetConfig, JobsConfig)> {
     let net = NetConfig {
         relay: NetConfig::parse_relay(&args.relay)?,
         address_lookup: !args.no_lookup,
