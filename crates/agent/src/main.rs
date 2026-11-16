@@ -305,6 +305,9 @@ fn args_for_service(args: &Args) -> Vec<std::ffi::OsString> {
         out.extend(["--port".into(), port.to_string().into()]);
     }
     out.extend(["--max-jobs".into(), args.max_jobs.to_string().into()]);
+    if args.run_as_system {
+        out.push("--run-as-system".into());
+    }
     out
 }
 
