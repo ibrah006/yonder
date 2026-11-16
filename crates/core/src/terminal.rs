@@ -206,6 +206,14 @@ impl Drop for AttachGuard {
     }
 }
 
+/// A program that starts the shell instead of the default one, for example to start it
+/// as another user. It runs inside the session's terminal.
+#[derive(Debug, Clone)]
+pub struct ShellCommand {
+    pub program: PathBuf,
+    pub args: Vec<OsString>,
+}
+
 /// All sessions on this machine.
 #[derive(Default)]
 pub struct TerminalManager {
