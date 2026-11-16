@@ -9,6 +9,8 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use tokio::io::{AsyncBufReadExt, BufReader};
+#[cfg(windows)]
+mod build_user;
 mod ipc;
 #[cfg(windows)]
 mod service;
