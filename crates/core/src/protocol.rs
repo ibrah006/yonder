@@ -385,6 +385,8 @@ pub enum ErrorCode {
     NotFound,
     /// This agent can't do that (for example, it was started without job support).
     Unsupported,
+    /// Something in use stops this for now.
+    Busy,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
