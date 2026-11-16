@@ -72,7 +72,7 @@ impl RunArgs {
 }
 
 pub async fn run(controller: &Controller, args: RunArgs) -> Result<ExitCode> {
-    let spec = args.spec()?;
+    let mut spec = args.spec()?;
     let machine = controller.pick_machine(&args.machine).await?;
     let job = controller.run(&machine, spec).await?;
     let id = job.meta.id.clone();
