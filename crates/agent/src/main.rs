@@ -283,7 +283,9 @@ async fn async_main(args: Args) -> Result<()> {
         Cmd::Resume => set_paused(&state, false),
         Cmd::Jobs => list_jobs(&state),
         Cmd::Audit { count } => show_audit(&state, count),
-        Cmd::JobRun { .. } => unreachable!("handled before the runtime starts"),
+        Cmd::JobRun { .. } | Cmd::BuildUser { .. } => {
+            unreachable!("handled before the runtime starts")
+        }
     }
 }
 
