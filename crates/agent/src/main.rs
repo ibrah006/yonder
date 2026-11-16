@@ -106,6 +106,18 @@ enum Cmd {
     /// Runs one job. Started by the agent; not for direct use.
     #[command(hide = true)]
     JobRun { job_dir: PathBuf },
+    /// Starts a job runner or shell as the build user. Used by the service.
+    #[command(hide = true)]
+    BuildUser {
+        #[command(subcommand)]
+        what: BuildUserCmd,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum BuildUserCmd {
+    Job { job_dir: PathBuf },
+    Shell,
 }
 
 #[derive(Debug, Subcommand)]
