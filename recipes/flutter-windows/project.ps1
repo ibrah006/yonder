@@ -92,7 +92,10 @@ if (Test-Path shorebird.yaml) {
   if (Has shorebird) {
     # The first run downloads Shorebird's own Flutter.
     & shorebird --version
-    $versions = (& shorebird flutter versions list 2>$null) -join "`n"
+    # No stderr redirect: Windows PowerShell turns the progress Shorebird writes there
+    # into an error that stops its own script.
+    $versions = ''
+    try { $versions = (& shorebird flutter versions list) -join "`n" } catch { Note "couldn't list Shorebird's Flutter versions: $($_.Exception.Message)" }
     if ($versions -and $versions -notmatch [regex]::Escape($version)) {
       Need "Shorebird has no Flutter $version yet; update it: yonder run win -- shorebird upgrade"
     }
