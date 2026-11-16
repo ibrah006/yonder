@@ -30,6 +30,8 @@ use crate::workspace::{
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 /// How long to wait for an answer to a request.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long to wait for requests that hash or copy many files on the machine.
+pub const FILE_WORK_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// How long a machine gets to answer when choosing between several.
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
