@@ -345,6 +345,16 @@ pub enum Response {
     },
     Terminals(Vec<TerminalInfo>),
     Terminal(TerminalInfo),
+    /// Contents the machine needs, by hash.
+    SyncNeeded(Vec<Hash>),
+    /// The request was carried out.
+    Done,
+    /// A synced workspace's folder on the machine.
+    Workspace {
+        path: String,
+    },
+    Files(Vec<FileEntry>),
+    FileData(Vec<u8>),
 }
 
 /// Description of a machine, as seen by one controller.
