@@ -22,6 +22,7 @@ pub mod protocol;
 pub mod store;
 pub mod terminal;
 pub mod ticket;
+pub mod workspace;
 
 pub use error::{Error, Result};
 
