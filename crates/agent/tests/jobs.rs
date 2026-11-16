@@ -37,6 +37,7 @@ async fn start_agent(dir: &TempDir, max_parallel: usize) -> Agent {
                 runner: RunnerCommand::agent_binary(AGENT_BIN),
                 max_parallel,
             }),
+            shell: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )
