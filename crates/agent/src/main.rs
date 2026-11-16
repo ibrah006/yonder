@@ -481,6 +481,7 @@ async fn start_local(
     net: NetConfig,
     name: Option<String>,
     jobs: JobsConfig,
+    shell: Option<yonder_core::terminal::ShellCommand>,
 ) -> Result<(Agent, tokio::task::JoinHandle<Result<()>>)> {
     let desk = ipc::Desk::new();
     let agent = Agent::start(
