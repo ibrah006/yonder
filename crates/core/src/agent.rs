@@ -200,6 +200,10 @@ impl Agent {
             jobs,
             audit: AuditLog::new(config.state.audit_file()),
             terminals: TerminalManager::with_shell(config.shell.clone()),
+            workspaces: Arc::new(Workspaces::new(
+                config.state.workspaces_dir(),
+                config.state.sync_dir(),
+            )),
         });
         tokio::spawn(accept_loop(inner.clone()));
         info!(id = %inner.id, name = %inner.machine_name, "agent started");
