@@ -244,6 +244,9 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             let machine = controller.pick_machine(&machine).await?;
             workspace::pull_here(controller, &machine, &patterns).await?;
         }
+        Cmd::Setup { machine, recipe } => {
+            return setup::run(controller, &machine, recipe.as_deref()).await;
+        }
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
