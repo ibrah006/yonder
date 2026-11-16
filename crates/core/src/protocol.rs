@@ -113,7 +113,12 @@ impl Command {
             | Command::ListJobs
             | Command::GetJob(_)
             | Command::JobLogs { .. }
-            | Command::CancelJob(_) => Some(Permission::RunJobs),
+            | Command::CancelJob(_)
+            | Command::SyncPlan { .. }
+            | Command::SyncPut { .. }
+            | Command::SyncApply { .. }
+            | Command::ListFiles { .. }
+            | Command::ReadFile { .. } => Some(Permission::RunJobs),
             Command::OpenTerminal { .. } | Command::ListTerminals | Command::CloseTerminal(_) => {
                 Some(Permission::Terminal)
             }
