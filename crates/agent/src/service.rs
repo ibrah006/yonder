@@ -57,8 +57,9 @@ pub fn secure_dir(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Installs or updates the service. `agent_args` are passed before `service run`.
-pub fn install(state_dir: &Path, agent_args: Vec<OsString>) -> Result<()> {
+/// Installs or updates the service. `agent_args` are passed before `service run`. With
+/// `build_user`, jobs and shells run as the limited build user instead of LocalSystem.
+pub fn install(state_dir: &Path, agent_args: Vec<OsString>, build_user: bool) -> Result<()> {
     let manager = ServiceManager::local_computer(
         None::<&str>,
         ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE,
