@@ -261,6 +261,169 @@ impl Controller {
         }
     }
 
+    /// Brings the machine's copy of `project` up to date and returns where it is there.
+    /// Only contents the machine doesn't already have are sent; `progress(sent, total)`
+    /// reports bytes as they go.
+    pub async fn sync(
+        &self,
+        machine: &PairedMachine,
+        workspace: &WorkspaceId,
+        project: &LocalProject,
+        mut progress: impl FnMut(u64, u64),
+    ) -> Result<SyncResult> {
+        let mut needed = std::collections::HashSet::new();
+        let empty: [FileEntry; 0] = [];
+        let mut chunks: Vec<&[FileEntry]> = project.files.chunks(ENTRIES_PER_MESSAGE).collect();
+        if chunks.is_empty() {
+            chunks.push(&empty);
+        }
+        for (i, chunk) in chunks.into_iter().enumerate() {
+            let command = Command::SyncPlan {
+                workspace: workspace.clone(),
+                files: chunk.to_vec(),
+                first: i == 0,
+            };
+            match self
+                .request_within(machine, command, FILE_WORK_TIMEOUT)
+                .await?
+            {
+                Response::SyncNeeded(hashes) => needed.extend(hashes),
+                other => return Err(unexpected("the contents needed", &other)),
+            }
+        }
+
+        let mut by_hash: HashMap<Hash, &FileEntry> = HashMap::new();
+        for file in &project.files {
+            by_hash.entry(file.hash).or_insert(file);
+        }
+        let uploads: Vec<&FileEntry> = needed
+            .iter()
+            .filter_map(|h| by_hash.get(h).copied())
+            .collect();
+        let total: u64 = uploads.iter().map(|f| f.size).sum();
+        let mut sent = 0u64;
+        let mut batch: Vec<BlobPart> = Vec::new();
+        let mut batch_bytes = 0usize;
+        for file in &uploads {
+            let full = project.root.join(&file.path);
+            let mut reader = std::fs::File::open(&full).map_err(|e| Error::io(&full, e))?;
+            let mut offset = 0u64;
+            loop {
+                let mut data = Vec::with_capacity(CHUNK_BYTES.min(file.size as usize));
+                std::io::Read::read_to_end(
+                    &mut std::io::Read::take(&mut reader, CHUNK_BYTES as u64),
+                    &mut data,
+                )
+                .map_err(|e| Error::io(&full, e))?;
+                let len = data.len();
+                if batch_bytes + len > CHUNK_BYTES && !batch.is_empty() {
+                    self.put(machine, workspace, std::mem::take(&mut batch))
+                        .await?;
+                    sent += batch_bytes as u64;
+                    batch_bytes = 0;
+                    progress(sent, total);
+                }
+                batch.push(BlobPart {
+                    hash: file.hash,
+                    offset,
+                    total: file.size,
+                    data,
+                });
+                batch_bytes += len;
+                offset += len as u64;
+                if len < CHUNK_BYTES || offset >= file.size {
+                    break;
+                }
+            }
+        }
+        if !batch.is_empty() {
+            self.put(machine, workspace, batch).await?;
+            sent += batch_bytes as u64;
+            progress(sent, total);
+        }
+
+        let apply = Command::SyncApply {
+            workspace: workspace.clone(),
+        };
+        match self
+            .request_within(machine, apply, FILE_WORK_TIMEOUT)
+            .await?
+        {
+            Response::Workspace { path } => Ok(SyncResult {
+                path,
+                sent_files: uploads.len(),
+                sent_bytes: sent,
+            }),
+            other => Err(unexpected("the workspace", &other)),
+        }
+    }
+
+    async fn put(
+        &self,
+        machine: &PairedMachine,
+        workspace: &WorkspaceId,
+        parts: Vec<BlobPart>,
+    ) -> Result<()> {
+        let command = Command::SyncPut {
+            workspace: workspace.clone(),
+            parts,
+        };
+        match self.request(machine, command).await? {
+            Response::Done => Ok(()),
+            other => Err(unexpected("done", &other)),
+        }
+    }
+
+    /// Copies files matching `patterns` from the machine's workspace into `into`, skipping
+    /// ones that are already the same here. Returns the files written.
+    pub async fn pull(
+        &self,
+        machine: &PairedMachine,
+        workspace: &WorkspaceId,
+        patterns: &[String],
+        into: &Path,
+    ) -> Result<Vec<FileEntry>> {
+        let list = Command::ListFiles {
+            workspace: workspace.clone(),
+            patterns: patterns.to_vec(),
+        };
+        let files = match self
+            .request_within(machine, list, FILE_WORK_TIMEOUT)
+            .await?
+        {
+            Response::Files(files) => files,
+            other => return Err(unexpected("files", &other)),
+        };
+        let mut written = Vec::new();
+        for entry in files {
+            if crate::workspace::local_matches(into, &entry) {
+                continue;
+            }
+            let mut data = Vec::with_capacity(entry.size as usize);
+            while (data.len() as u64) < entry.size {
+                let read = Command::ReadFile {
+                    workspace: workspace.clone(),
+                    path: entry.path.clone(),
+                    offset: data.len() as u64,
+                };
+                match self.request(machine, read).await? {
+                    Response::FileData(chunk) if !chunk.is_empty() => data.extend(chunk),
+                    Response::FileData(_) => break,
+                    other => return Err(unexpected("file data", &other)),
+                }
+            }
+            if *blake3::hash(&data).as_bytes() != entry.hash {
+                return Err(Error::Protocol(format!(
+                    "{} changed on the machine while it was being copied; try again",
+                    entry.path
+                )));
+            }
+            crate::workspace::write_local(into, &entry, &data)?;
+            written.push(entry);
+        }
+        Ok(written)
+    }
+
     /// Round-trip time to the machine.
     pub async fn ping(&self, machine: &PairedMachine) -> Result<Duration> {
         let started = Instant::now();
