@@ -22,6 +22,9 @@ use crate::protocol::{
 use crate::store::{ControllerState, PairedMachine, StateDir, default_device_name, now_secs};
 use crate::terminal::{SessionId, TerminalInfo, TerminalInput};
 use crate::ticket::{PairingTicket, pairing_proof};
+use crate::workspace::{
+    BlobPart, CHUNK_BYTES, ENTRIES_PER_MESSAGE, FileEntry, Hash, LocalProject, WorkspaceId,
+};
 
 /// How long to try reaching a machine before giving up.
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
