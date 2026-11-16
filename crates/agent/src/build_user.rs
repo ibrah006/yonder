@@ -112,6 +112,11 @@ pub fn set_up(state: &Path) -> Result<()> {
     yonder_core::store::write_secret_file(&password_file(state), password.as_bytes())
         .context("couldn't save the build user's password")?;
     grant_rights()?;
+    // Synced projects live here and jobs run in them, so the account needs to write there.
+    let workspaces = yonder_core::store::StateDir::new(state).workspaces_dir();
+    std::fs::create_dir_all(&workspaces)
+        .with_context(|| format!("couldn't create {}", workspaces.display()))?;
+    grant_access(&workspaces)?;
     hide_from_sign_in();
     if created {
         println!("Created the {USER} account; jobs and shells run as this limited user.");
