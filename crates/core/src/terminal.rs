@@ -233,6 +233,14 @@ impl TerminalManager {
         Arc::new(TerminalManager::default())
     }
 
+    /// Starts shells with `shell` instead of the default.
+    pub fn with_shell(shell: Option<ShellCommand>) -> Arc<TerminalManager> {
+        Arc::new(TerminalManager {
+            shell,
+            ..TerminalManager::default()
+        })
+    }
+
     /// Starts a new shell.
     pub fn open(&self, started_by: &str, cols: u16, rows: u16) -> Result<Arc<Session>> {
         self.forget_old();
