@@ -183,7 +183,8 @@ fn run_as_service(args: Args) -> Result<()> {
     let state = state_dir(&args)?;
     let _ = service::secure_dir(state.path());
     init_logging(Some(&state.path().join("agent.log")));
-    let (net, jobs) = settings(&args)?;
+    let (net, mut jobs) = settings(&args)?;
+    let shell = use_build_user(&args, &state, &mut jobs)?;
     service::run(Box::new(move |stop| {
         tokio::runtime::Runtime::new()?.block_on(run_until(&state, net, None, jobs, async {
             let _ = stop.await;
