@@ -204,7 +204,8 @@ impl JobStatus {
         }
     }
 
-    pub(crate) fn finish(mut self, state: JobState, message: Option<String>) -> Self {
+    /// This status, ended in `state` now, with an optional explanation.
+    pub fn finish(mut self, state: JobState, message: Option<String>) -> Self {
         self.state = state;
         self.finished_at_ms = Some(now_ms());
         if message.is_some() {
