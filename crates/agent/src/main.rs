@@ -332,6 +332,7 @@ fn service_command(
     _action: ServiceAction,
     _service_args: &[std::ffi::OsString],
     _state: &StateDir,
+    _build_user: bool,
 ) -> Result<()> {
     bail!(
         "the service is Windows-only for now; use `yonder-agent serve` (the macOS agent comes later)"
