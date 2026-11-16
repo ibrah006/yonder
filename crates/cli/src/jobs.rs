@@ -74,6 +74,15 @@ impl RunArgs {
 pub async fn run(controller: &Controller, args: RunArgs) -> Result<ExitCode> {
     let mut spec = args.spec()?;
     let machine = controller.pick_machine(&args.machine).await?;
+    let synced = if args.sync || !args.pull.is_empty() {
+        let synced = crate::workspace::sync_here(controller, &machine).await?;
+        if spec.cwd.is_none() {
+            spec.cwd = Some(synced.remote_cwd(&machine)?);
+        }
+        Some(synced)
+    } else {
+        None
+    };
     let job = controller.run(&machine, spec).await?;
     let id = job.meta.id.clone();
     if args.detach {
