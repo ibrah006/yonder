@@ -283,6 +283,62 @@ impl LocalProject {
     }
 }
 
+/// The ignored files `.yonderinclude` asks for, and the lines that matched nothing.
+fn included_paths(root: &Path) -> Result<(Vec<String>, Vec<String>)> {
+    let file = root.join(INCLUDE_FILE);
+    let text = match std::fs::read_to_string(&file) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok((Vec::new(), Vec::new())),
+        Err(e) => return Err(Error::io(&file, e)),
+    };
+    let lines: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| l.trim_start_matches('/'))
+        .collect();
+    let mut found = Vec::new();
+    let mut missing = Vec::new();
+    let mut globs = Vec::new();
+    for line in lines {
+        if line.contains(['*', '?', '[', '{']) {
+            let glob = globset::Glob::new(line)
+                .map_err(|e| Error::Protocol(format!("{INCLUDE_FILE}: bad pattern {line}: {e}")))?;
+            globs.push((line, glob.compile_matcher()));
+        } else if valid_path(line) && join(root, line).is_file() {
+            found.push(line.to_string());
+        } else {
+            missing.push(line.to_string());
+        }
+    }
+    if !globs.is_empty() {
+        // Only patterns need the (possibly long) list of ignored files.
+        let ignored = git(
+            root,
+            &[
+                "ls-files",
+                "-z",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+            ],
+        )?;
+        let ignored: Vec<String> = ignored
+            .split(|b| *b == 0)
+            .filter(|p| !p.is_empty())
+            .map(|raw| String::from_utf8_lossy(raw).into_owned())
+            .collect();
+        for (line, matcher) in globs {
+            let before = found.len();
+            found.extend(ignored.iter().filter(|p| matcher.is_match(p)).cloned());
+            if found.len() == before {
+                missing.push(line.to_string());
+            }
+        }
+    }
+    Ok((found, missing))
+}
+
 fn git(dir: &Path, args: &[&str]) -> Result<Vec<u8>> {
     let output = std::process::Command::new("git")
         .arg("-C")
