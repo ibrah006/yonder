@@ -224,6 +224,15 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
                 None => shell::list(controller, &machine).await?,
             }
         }
+        Cmd::Sync { machine } => {
+            let machine = controller.pick_machine(&machine).await?;
+            let synced = workspace::sync_here(controller, &machine).await?;
+            println!("{}", synced.remote);
+        }
+        Cmd::Pull { machine, patterns } => {
+            let machine = controller.pick_machine(&machine).await?;
+            workspace::pull_here(controller, &machine, &patterns).await?;
+        }
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
