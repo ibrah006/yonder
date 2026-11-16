@@ -107,7 +107,21 @@ pub async fn run(controller: &Controller, args: RunArgs) -> Result<ExitCode> {
     } else {
         eprintln!("[yonder] running on {} as job {id}", machine.name);
     }
-    follow(controller, &machine, &id, 0).await
+    let code = follow(controller, &machine, &id, 0).await?;
+    if let Some(synced) = synced
+        && !args.pull.is_empty()
+    {
+        if code == ExitCode::SUCCESS {
+            crate::workspace::pull_into(controller, &machine, &synced.id, &synced.root, &args.pull)
+                .await?;
+        } else {
+            eprintln!(
+                "[yonder] not pulling outputs from an unsuccessful job; `yonder pull {} <pattern>` fetches them anyway",
+                machine.name
+            );
+        }
+    }
+    Ok(code)
 }
 
 /// Streams a job's output to stdout until it finishes, reconnecting after network drops.
