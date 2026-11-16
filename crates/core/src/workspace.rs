@@ -216,11 +216,17 @@ pub struct LocalProject {
     pub files: Vec<FileEntry>,
     /// Symlinks and other non-files that were left out.
     pub skipped: usize,
+    /// Lines of `.yonderinclude` that matched nothing.
+    pub missing: Vec<String>,
 }
+
+/// Lists files git ignores that should be synced anyway, one path or glob per line, such
+/// as `.env` or signing keys a build needs. Lines starting with `#` are comments.
+pub const INCLUDE_FILE: &str = ".yonderinclude";
 
 impl LocalProject {
     /// Finds the git repository containing `start` and hashes its files: tracked and
-    /// untracked, without ignored ones.
+    /// untracked, without ignored ones except those `.yonderinclude` lists.
     pub fn scan(start: &Path) -> Result<LocalProject> {
         let root = git(start, &["rev-parse", "--show-toplevel"])?;
         let root = PathBuf::from(String::from_utf8_lossy(&root).trim());
