@@ -240,11 +240,15 @@ impl LocalProject {
                 "--exclude-standard",
             ],
         )?;
+        let (included, missing) = included_paths(&root)?;
         let mut seen = HashSet::new();
         let mut files = Vec::new();
         let mut skipped = 0;
-        for raw in listed.split(|b| *b == 0).filter(|p| !p.is_empty()) {
-            let path = String::from_utf8_lossy(raw).into_owned();
+        let listed = listed
+            .split(|b| *b == 0)
+            .filter(|p| !p.is_empty())
+            .map(|raw| String::from_utf8_lossy(raw).into_owned());
+        for path in listed.chain(included) {
             if !seen.insert(path.clone()) {
                 continue;
             }
