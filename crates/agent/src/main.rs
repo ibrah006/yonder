@@ -140,6 +140,9 @@ fn main() -> Result<()> {
         let state = yonder_core::jobs::runner::run(job_dir)?;
         std::process::exit(if state.is_finished() { 0 } else { 1 });
     }
+    if let Cmd::BuildUser { what } = &args.command {
+        return as_build_user(&args, what);
+    }
     if matches!(
         args.command,
         Cmd::Service {
