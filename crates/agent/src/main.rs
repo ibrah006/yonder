@@ -316,6 +316,7 @@ fn service_command(
     action: ServiceAction,
     service_args: &[std::ffi::OsString],
     state: &StateDir,
+    build_user: bool,
 ) -> Result<()> {
     match action {
         ServiceAction::Install => service::install(state.path(), service_args.to_vec()),
