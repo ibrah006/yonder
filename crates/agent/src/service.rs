@@ -83,6 +83,9 @@ pub fn install(state_dir: &Path, agent_args: Vec<OsString>, build_user: bool) ->
             .with_context(|| format!("couldn't copy the agent to {}", target.display()))?;
     }
     secure_dir(state_dir)?;
+    if build_user {
+        crate::build_user::set_up(state_dir)?;
+    }
 
     let mut launch_arguments = agent_args;
     launch_arguments.extend(["service".into(), "run".into()]);
