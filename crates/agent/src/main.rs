@@ -490,7 +490,7 @@ async fn start_local(
             net,
             name,
             jobs: Some(jobs),
-            shell: None,
+            shell,
         },
         desk.approver(),
     )
