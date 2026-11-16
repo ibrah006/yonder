@@ -670,6 +670,15 @@ fn unexpected(wanted: &str, got: &Response) -> Error {
     Error::Protocol(format!("expected {wanted}, got {got:?}"))
 }
 
+/// What a sync did.
+#[derive(Debug, Clone)]
+pub struct SyncResult {
+    /// The workspace's folder on the machine.
+    pub path: String,
+    pub sent_files: usize,
+    pub sent_bytes: u64,
+}
+
 fn expect_job(response: Response) -> Result<JobInfo> {
     match response {
         Response::Job(job) => Ok(job),
