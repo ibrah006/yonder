@@ -32,6 +32,7 @@ async fn start_agent_in(dir: TempDir, approve: bool) -> TestAgent {
             net: NetConfig::local_only(),
             name: Some("build-box".into()),
             jobs: None,
+            shell: None,
         },
         approver_fn(move |_candidate: PairingCandidate| {
             counter.fetch_add(1, Ordering::SeqCst);
