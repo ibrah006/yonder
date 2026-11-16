@@ -4,6 +4,7 @@
 //! `linux`, `any`), in which case the least busy reachable one is used.
 
 mod jobs;
+mod setup;
 mod shell;
 mod workspace;
 
