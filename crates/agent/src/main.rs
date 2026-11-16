@@ -49,6 +49,11 @@ struct Args {
     #[arg(long, global = true, default_value_t = 2)]
     max_jobs: usize,
 
+    /// Service only: run jobs and shells as LocalSystem (full administrator) instead of
+    /// the limited `yonder-build` account. Give this to `service install`.
+    #[arg(long, global = true)]
+    run_as_system: bool,
+
     #[command(subcommand)]
     command: Cmd,
 }
