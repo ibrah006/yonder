@@ -126,9 +126,16 @@ pub fn install(state_dir: &Path, agent_args: Vec<OsString>, build_user: bool) ->
     );
     println!("It starts with Windows and runs while nobody is signed in.");
     println!();
-    println!("Note: jobs and shells currently run as the service account (LocalSystem), which");
-    println!("has full administrator rights on this machine. Only pair devices you control.");
-    println!("Running them as a separate, limited build user is coming next.");
+    if build_user {
+        println!(
+            "Jobs and shells run as {}, a standard user without administrator rights.",
+            crate::build_user::USER
+        );
+        println!("Install tools for all users (or as that user) so jobs can find them.");
+    } else {
+        println!("Note: jobs and shells run as LocalSystem (--run-as-system), which has full");
+        println!("administrator rights on this machine. Only pair devices you control.");
+    }
     Ok(())
 }
 
