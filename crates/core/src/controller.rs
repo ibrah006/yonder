@@ -230,6 +230,16 @@ impl Controller {
 
     /// Sends a command and returns the machine's answer. Refusals become [`Error::Remote`].
     pub async fn request(&self, machine: &PairedMachine, command: Command) -> Result<Response> {
+        self.request_within(machine, command, REQUEST_TIMEOUT).await
+    }
+
+    /// [`Controller::request`] with its own time limit.
+    pub async fn request_within(
+        &self,
+        machine: &PairedMachine,
+        command: Command,
+        timeout: Duration,
+    ) -> Result<Response> {
         let conn = self.connection(machine).await?;
         let signed = SignedRequest::new(&self.key, machine.id, command);
         let result = tokio::time::timeout(REQUEST_TIMEOUT, async {
