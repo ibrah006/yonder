@@ -511,7 +511,7 @@ async fn run_until(
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let _lock = InstanceLock::acquire(state)?;
-    let (agent, local) = start_local(state, net, name, jobs).await?;
+    let (agent, local) = start_local(state, net, name, jobs, shell).await?;
     stop.await;
     agent.shutdown().await;
     local.abort();
