@@ -218,6 +218,8 @@ pub struct ShellCommand {
 #[derive(Default)]
 pub struct TerminalManager {
     sessions: Mutex<HashMap<SessionId, Arc<Session>>>,
+    /// `None`: this machine's usual shell, as the agent's own user.
+    shell: Option<ShellCommand>,
 }
 
 impl std::fmt::Debug for TerminalManager {
