@@ -115,7 +115,7 @@ pub async fn pull_into(
     Ok(())
 }
 
-fn git_root(dir: &Path) -> Result<PathBuf> {
+pub fn git_root(dir: &Path) -> Result<PathBuf> {
     let output = std::process::Command::new("git")
         .arg("-C")
         .arg(dir)
