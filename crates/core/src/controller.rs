@@ -242,7 +242,7 @@ impl Controller {
     ) -> Result<Response> {
         let conn = self.connection(machine).await?;
         let signed = SignedRequest::new(&self.key, machine.id, command);
-        let result = tokio::time::timeout(REQUEST_TIMEOUT, async {
+        let result = tokio::time::timeout(timeout, async {
             let (mut send, mut recv) = conn.open_bi().await.map_err(Error::network)?;
             write_message(&mut send, &signed).await?;
             read_message::<Response>(&mut recv).await
