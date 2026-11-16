@@ -157,6 +157,16 @@ impl Command {
             Command::GetJob(id) | Command::CancelJob(id) | Command::JobLogs { id, .. } => {
                 Some(id.to_string())
             }
+            Command::SyncPlan { workspace, .. }
+            | Command::SyncPut { workspace, .. }
+            | Command::SyncApply { workspace } => Some(workspace.to_string()),
+            Command::ListFiles {
+                workspace,
+                patterns,
+            } => Some(format!("{workspace}: {}", patterns.join(" "))),
+            Command::ReadFile {
+                workspace, path, ..
+            } => Some(format!("{workspace}: {path}")),
         }
     }
 }
