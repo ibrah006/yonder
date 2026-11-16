@@ -1,7 +1,7 @@
 //! The controller side: pairs with machines and sends them commands.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
