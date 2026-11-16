@@ -152,6 +152,7 @@ struct Inner {
     jobs: Option<Arc<JobManager>>,
     audit: AuditLog,
     terminals: Arc<TerminalManager>,
+    workspaces: Arc<Workspaces>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
