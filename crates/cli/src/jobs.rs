@@ -331,6 +331,8 @@ mod tests {
             env: vec![],
             label: None,
             exec: false,
+            sync: false,
+            pull: vec![],
             command: command.iter().map(|s| s.to_string()).collect(),
         }
     }
