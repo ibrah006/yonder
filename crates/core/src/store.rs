@@ -17,7 +17,7 @@ use crate::identity::DeviceId;
 use crate::permissions::Permissions;
 
 /// Writes `contents` to `path` atomically, readable only by the owner.
-pub(crate) fn write_secret_file(path: &Path, contents: &[u8]) -> Result<()> {
+pub fn write_secret_file(path: &Path, contents: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         create_private_dir(parent)?;
     }
