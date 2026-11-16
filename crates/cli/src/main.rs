@@ -85,6 +85,19 @@ enum Cmd {
         #[arg(long, value_name = "SESSION")]
         close: Option<String>,
     },
+    /// Copy the git project you're in to a machine (only changes are sent).
+    ///
+    /// Ignored files on the machine, such as build folders, are kept between syncs.
+    Sync { machine: String },
+    /// Copy files from the machine's copy of this project back here.
+    ///
+    /// Example: yonder pull win 'build/windows/x64/runner/Release/**'
+    Pull {
+        machine: String,
+        /// Glob patterns relative to the project, such as `build/windows/**`.
+        #[arg(required = true)]
+        patterns: Vec<String>,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
