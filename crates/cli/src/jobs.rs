@@ -86,6 +86,12 @@ pub async fn run(controller: &Controller, args: RunArgs) -> Result<ExitCode> {
     let job = controller.run(&machine, spec).await?;
     let id = job.meta.id.clone();
     if args.detach {
+        if !args.pull.is_empty() {
+            eprintln!(
+                "[yonder] outputs aren't pulled with --detach; fetch them later with `yonder pull {} <pattern>`",
+                machine.name
+            );
+        }
         println!("{id}");
         eprintln!(
             "Started on {}. Follow it with `yonder attach {} {id}`.",
