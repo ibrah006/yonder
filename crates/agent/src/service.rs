@@ -3,7 +3,8 @@
 //! `yonder-agent service install` (from an administrator terminal):
 //! 1. copies this program to `%ProgramFiles%\Yonder\yonder-agent.exe`;
 //! 2. locks the state folder (`%ProgramData%\Yonder\agent`) to SYSTEM and Administrators;
-//! 3. registers and starts the `YonderAgent` service (runs as LocalSystem, restarts on failure).
+//! 3. sets up the limited `yonder-build` account that jobs and shells run as;
+//! 4. registers and starts the `YonderAgent` service (runs as LocalSystem, restarts on failure).
 //!
 //! Running it again updates the installed program in place.
 
