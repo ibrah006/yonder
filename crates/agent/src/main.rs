@@ -192,6 +192,67 @@ fn run_as_service(args: Args) -> Result<()> {
     }))
 }
 
+/// The service starts jobs and shells through `build-user`, unless installed with
+/// `--run-as-system`.
+#[cfg(windows)]
+fn use_build_user(
+    args: &Args,
+    state: &StateDir,
+    jobs: &mut JobsConfig,
+) -> Result<Option<yonder_core::terminal::ShellCommand>> {
+    if args.run_as_system {
+        tracing::warn!("jobs and shells run as LocalSystem (--run-as-system)");
+        return Ok(None);
+    }
+    if !build_user::is_set_up(state.path()) {
+        tracing::warn!(
+            "the build user isn't set up; jobs and shells will fail until `yonder-agent service install` is run again"
+        );
+    }
+    let program = std::env::current_exe().context("couldn't find the agent's own program file")?;
+    let mut prefix: Vec<std::ffi::OsString> = Vec::new();
+    if let Some(dir) = &args.state_dir {
+        prefix.extend(["--state-dir".into(), dir.clone().into_os_string()]);
+    }
+    prefix.push("build-user".into());
+    jobs.runner = RunnerCommand {
+        program: program.clone(),
+        args: [prefix.clone(), vec!["job".into()]].concat(),
+    };
+    Ok(Some(yonder_core::terminal::ShellCommand {
+        program,
+        args: [prefix, vec!["shell".into()]].concat(),
+    }))
+}
+
+#[cfg(windows)]
+fn as_build_user(args: &Args, what: &BuildUserCmd) -> Result<()> {
+    let state = state_dir(args)?;
+    let launch = match what {
+        BuildUserCmd::Job { job_dir } => build_user::Launch::Job(job_dir),
+        BuildUserCmd::Shell => build_user::Launch::Shell,
+    };
+    match build_user::run(state.path(), launch) {
+        Ok(code) => std::process::exit(code as i32),
+        Err(err) => {
+            match what {
+                BuildUserCmd::Job { job_dir } => {
+                    build_user::record_failure(job_dir, &format!("{err:#}"))
+                }
+                BuildUserCmd::Shell => {
+                    eprintln!("Couldn't start the shell as {}: {err:#}", build_user::USER)
+                }
+            }
+            std::process::exit(1);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn as_build_user(_args: &Args, _what: &BuildUserCmd) -> Result<()> {
+    bail!("the build user is Windows-only")
+}
+
 #[cfg(not(windows))]
 fn run_as_service(_args: Args) -> Result<()> {
     bail!("the service is Windows-only for now; use `yonder-agent serve`")
