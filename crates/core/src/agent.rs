@@ -26,7 +26,7 @@ use crate::protocol::{
     read_frame, read_message, write_frame, write_message,
 };
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
-use crate::terminal::{Session, TerminalInput, TerminalManager};
+use crate::terminal::{Session, ShellCommand, TerminalInput, TerminalManager};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
 
 /// How long someone at the machine has to approve a pairing request.
