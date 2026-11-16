@@ -534,6 +534,63 @@ async fn decide(
             })?;
             Reply::One(Box::new(Response::Terminal(info)))
         }
+        Command::SyncPlan {
+            workspace,
+            files,
+            first,
+        } => {
+            let needed =
+                blocking(&inner.workspaces, move |w| w.plan(&workspace, files, first)).await?;
+            Reply::One(Box::new(Response::SyncNeeded(needed)))
+        }
+        Command::SyncPut { workspace, parts } => {
+            // File contents don't belong in the audit log.
+            audit.request = None;
+            blocking(&inner.workspaces, move |w| w.put(&workspace, parts)).await?;
+            Reply::One(Box::new(Response::Done))
+        }
+        Command::SyncApply { workspace } => {
+            let dir = inner.workspaces.dir(&workspace);
+            if let Ok(jobs) = inner.jobs()
+                && jobs.list().iter().any(|job| {
+                    !job.status.state.is_finished()
+                        && job
+                            .meta
+                            .spec
+                            .cwd
+                            .as_deref()
+                            .is_some_and(|cwd| Path::new(cwd).starts_with(&dir))
+                })
+            {
+                return Err(RemoteError::new(
+                    ErrorCode::Busy,
+                    "a job is still running in this workspace; wait for it or cancel it",
+                ));
+            }
+            let dir = blocking(&inner.workspaces, move |w| w.apply(&workspace)).await?;
+            Reply::One(Box::new(Response::Workspace {
+                path: dir.to_string_lossy().into_owned(),
+            }))
+        }
+        Command::ListFiles {
+            workspace,
+            patterns,
+        } => {
+            let files = blocking(&inner.workspaces, move |w| w.list(&workspace, &patterns)).await?;
+            Reply::One(Box::new(Response::Files(files)))
+        }
+        Command::ReadFile {
+            workspace,
+            path,
+            offset,
+        } => {
+            audit.request = None;
+            let data = blocking(&inner.workspaces, move |w| {
+                w.read(&workspace, &path, offset)
+            })
+            .await?;
+            Reply::One(Box::new(Response::FileData(data)))
+        }
     })
 }
 
