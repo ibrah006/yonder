@@ -49,6 +49,8 @@ pub struct AgentConfig {
     pub name: Option<String>,
     /// How to run jobs. `None` refuses job commands (useful for tests of other features).
     pub jobs: Option<JobsConfig>,
+    /// How to start shells. `None`: the machine's usual shell, as the agent's own user.
+    pub shell: Option<ShellCommand>,
 }
 
 /// A controller asking to pair, shown to the person at the machine.
