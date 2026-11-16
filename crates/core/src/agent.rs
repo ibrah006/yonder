@@ -197,7 +197,7 @@ impl Agent {
             events,
             jobs,
             audit: AuditLog::new(config.state.audit_file()),
-            terminals: TerminalManager::new(),
+            terminals: TerminalManager::with_shell(config.shell.clone()),
         });
         tokio::spawn(accept_loop(inner.clone()));
         info!(id = %inner.id, name = %inner.machine_name, "agent started");
