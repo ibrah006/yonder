@@ -21,6 +21,7 @@ use crate::identity::{DeviceId, DeviceKey};
 use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::permissions::{Permission, Permissions};
 use crate::terminal::{SessionId, TerminalInfo};
+use crate::workspace::{BlobPart, FileEntry, Hash, WorkspaceId};
 
 /// ALPN for normal use by paired controllers.
 pub const CONTROL_ALPN: &[u8] = b"yonder/control/1";
