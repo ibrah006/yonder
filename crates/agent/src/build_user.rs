@@ -466,7 +466,8 @@ fn environment(token: &Owned) -> Result<Environment> {
     Ok(Environment(block))
 }
 
-/// Lets the account read and write this job's folder (and nothing else of the agent's).
+/// Lets the account read and write this folder: a job's, or the workspaces (nothing else of
+/// the agent's).
 fn grant_access(dir: &Path) -> Result<()> {
     let status = Command::new("icacls")
         .arg(dir)
