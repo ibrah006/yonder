@@ -28,6 +28,14 @@ pub struct RunArgs {
     /// Run the program directly instead of through the machine's shell.
     #[arg(long)]
     pub exec: bool,
+    /// Copy the git project you're in to the machine first (only changes are sent) and
+    /// run there, in the folder matching this one.
+    #[arg(short, long)]
+    pub sync: bool,
+    /// After the job succeeds, copy files matching this pattern (relative to the project,
+    /// such as `build/windows/**`) back here. Implies --sync. Repeatable.
+    #[arg(long, value_name = "PATTERN")]
+    pub pull: Vec<String>,
     /// The command, after `--`.
     #[arg(last = true, required = true, num_args = 1..)]
     pub command: Vec<String>,
