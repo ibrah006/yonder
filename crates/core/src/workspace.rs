@@ -751,6 +751,52 @@ mod tests {
     }
 
     #[test]
+    fn include_file_adds_ignored_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        let git = |args: &[&str]| {
+            let ok = std::process::Command::new("git")
+                .arg("-C")
+                .arg(root)
+                .args(args)
+                .output()
+                .unwrap()
+                .status
+                .success();
+            assert!(ok, "git {args:?}");
+        };
+        git(&["init", "-q"]);
+        std::fs::write(root.join(".gitignore"), ".env\n*.pem\nbuild/\n").unwrap();
+        std::fs::write(root.join(".env"), "API_URL=x").unwrap();
+        std::fs::write(root.join("key.pem"), "secret").unwrap();
+        std::fs::create_dir(root.join("build")).unwrap();
+        std::fs::write(root.join("build/out.bin"), "big").unwrap();
+        std::fs::write(root.join("main.txt"), "code").unwrap();
+
+        let paths = |p: &LocalProject| p.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>();
+        let plain = LocalProject::scan(root).unwrap();
+        assert_eq!(paths(&plain), [".gitignore", "main.txt"]);
+
+        std::fs::write(
+            root.join(INCLUDE_FILE),
+            "# needed by the build\n.env\n/*.pem\nmissing.txt\nnone/*.key\n",
+        )
+        .unwrap();
+        let with = LocalProject::scan(root).unwrap();
+        assert_eq!(
+            paths(&with),
+            [
+                ".env",
+                ".gitignore",
+                ".yonderinclude",
+                "key.pem",
+                "main.txt"
+            ]
+        );
+        assert_eq!(with.missing, ["missing.txt", "none/*.key"]);
+    }
+
+    #[test]
     fn sync_sends_only_whats_missing_and_keeps_ignored_files() {
         let (_temp, ws, id) = setup();
         let files = vec![entry("a.txt", b"one"), entry("src/b.txt", b"two")];
