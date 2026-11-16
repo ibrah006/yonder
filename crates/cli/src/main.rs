@@ -99,6 +99,16 @@ enum Cmd {
         #[arg(required = true)]
         patterns: Vec<String>,
     },
+    /// Install what the project you're in needs on a machine (its Flutter, Shorebird…).
+    ///
+    /// Runs a recipe's project part as the build account; the recipe's machine part
+    /// (tools for every account) runs once on the machine as admin.
+    Setup {
+        machine: String,
+        /// Recipe to use (default: the one that fits the project).
+        #[arg(long)]
+        recipe: Option<String>,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
