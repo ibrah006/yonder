@@ -60,6 +60,13 @@ pub async fn sync_here(controller: &Controller, machine: &PairedMachine) -> Resu
             project.skipped
         );
     }
+    if !project.missing.is_empty() {
+        eprintln!(
+            "[yonder] {} lists files that aren't here: {}",
+            yonder_core::workspace::INCLUDE_FILE,
+            project.missing.join(", ")
+        );
+    }
     let result = controller.sync(machine, &id, &project, |_, _| {}).await?;
     eprintln!(
         "[yonder] synced: sent {} changed files ({})",
