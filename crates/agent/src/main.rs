@@ -507,6 +507,7 @@ async fn run_until(
     net: NetConfig,
     name: Option<String>,
     jobs: JobsConfig,
+    shell: Option<yonder_core::terminal::ShellCommand>,
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let _lock = InstanceLock::acquire(state)?;
