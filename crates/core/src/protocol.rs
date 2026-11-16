@@ -77,6 +77,31 @@ pub enum Command {
     ListTerminals,
     /// End a session's shell. Answered with [`Response::Terminal`].
     CloseTerminal(SessionId),
+    /// Part of a project's file list for a workspace; `first` starts a new sync. Answered
+    /// with [`Response::SyncNeeded`]: the contents the machine doesn't have.
+    SyncPlan {
+        workspace: WorkspaceId,
+        files: Vec<FileEntry>,
+        first: bool,
+    },
+    /// Contents the machine asked for. Answered with [`Response::Done`].
+    SyncPut {
+        workspace: WorkspaceId,
+        parts: Vec<BlobPart>,
+    },
+    /// Make the workspace match the file list. Answered with [`Response::Workspace`].
+    SyncApply { workspace: WorkspaceId },
+    /// Files in a workspace matching glob patterns. Answered with [`Response::Files`].
+    ListFiles {
+        workspace: WorkspaceId,
+        patterns: Vec<String>,
+    },
+    /// Part of a file in a workspace, from `offset`. Answered with [`Response::FileData`].
+    ReadFile {
+        workspace: WorkspaceId,
+        path: String,
+        offset: u64,
+    },
 }
 
 impl Command {
