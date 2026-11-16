@@ -258,7 +258,15 @@ impl TerminalManager {
                 pixel_height: 0,
             })
             .map_err(pty_err)?;
-        let child = pair.slave.spawn_command(shell_command()).map_err(pty_err)?;
+        let command = match &self.shell {
+            Some(shell) => {
+                let mut command = CommandBuilder::new(&shell.program);
+                command.args(&shell.args);
+                command
+            }
+            None => shell_command(),
+        };
+        let child = pair.slave.spawn_command(command).map_err(pty_err)?;
         // The shell has its own copy of the terminal; dropping ours lets EOF arrive when it exits.
         drop(pair.slave);
         let reader = pair.master.try_clone_reader().map_err(pty_err)?;
