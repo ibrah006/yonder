@@ -319,7 +319,7 @@ fn service_command(
     build_user: bool,
 ) -> Result<()> {
     match action {
-        ServiceAction::Install => service::install(state.path(), service_args.to_vec()),
+        ServiceAction::Install => service::install(state.path(), service_args.to_vec(), build_user),
         ServiceAction::Uninstall => service::uninstall(),
         ServiceAction::Start => service::control(true),
         ServiceAction::Stop => service::control(false),
