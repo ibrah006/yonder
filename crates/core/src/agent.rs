@@ -594,6 +594,18 @@ async fn decide(
     })
 }
 
+/// Runs file work off the async threads.
+async fn blocking<T: Send + 'static>(
+    workspaces: &Arc<Workspaces>,
+    work: impl FnOnce(&Workspaces) -> Result<T> + Send + 'static,
+) -> std::result::Result<T, RemoteError> {
+    let workspaces = workspaces.clone();
+    tokio::task::spawn_blocking(move || work(&workspaces))
+        .await
+        .map_err(|e| RemoteError::new(ErrorCode::Internal, e.to_string()))?
+        .map_err(|e| RemoteError::new(ErrorCode::Internal, e.to_string()))
+}
+
 /// Connects a client to a terminal session until it detaches or the shell exits.
 ///
 /// Keystrokes are read in their own task: reading a frame isn't safe to interrupt, so it
