@@ -529,7 +529,7 @@ async fn serve(
     jobs: JobsConfig,
 ) -> Result<()> {
     let _lock = InstanceLock::acquire(state)?;
-    let (agent, local) = start_local(state, net, name, jobs).await?;
+    let (agent, local) = start_local(state, net, name, jobs, None).await?;
     println!("{} is ready. Press Ctrl-C to stop.", agent.name());
     ctrl_c().await;
     println!("Stopping… (running jobs carry on)");
