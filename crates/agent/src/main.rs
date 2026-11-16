@@ -550,7 +550,7 @@ async fn pair(
         // An agent is running (or still starting): pair through it.
         return pair_with(connect_with_retry(state).await?, minutes).await;
     };
-    let (agent, local) = start_local(state, net, name, jobs).await?;
+    let (agent, local) = start_local(state, net, name, jobs, None).await?;
     let client = connect_with_retry(state).await?;
     let result = pair_with(client, minutes).await;
     if result.is_ok() {
