@@ -181,6 +181,11 @@ pub fn uninstall() -> Result<()> {
     stop_and_wait(&service)?;
     service.delete()?;
     println!("Removed the {SERVICE_NAME} service. Paired devices and job history were kept.");
+    println!(
+        "The {} account and its files were kept; remove it with `net user {} /delete`.",
+        crate::build_user::USER,
+        crate::build_user::USER
+    );
     Ok(())
 }
 
