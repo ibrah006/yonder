@@ -29,6 +29,7 @@ async fn setup() -> Setup {
             net: NetConfig::local_only(),
             name: Some("box".into()),
             jobs: None,
+            shell: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )
