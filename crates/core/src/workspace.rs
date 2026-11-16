@@ -274,6 +274,7 @@ impl LocalProject {
             root,
             files,
             skipped,
+            missing,
         })
     }
 
