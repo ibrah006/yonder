@@ -175,6 +175,16 @@ impl StateDir {
     pub fn audit_file(&self) -> PathBuf {
         self.0.join("audit.log")
     }
+
+    /// Synced project copies, where jobs run.
+    pub fn workspaces_dir(&self) -> PathBuf {
+        self.0.join("workspaces")
+    }
+
+    /// Bookkeeping for workspace syncs.
+    pub fn sync_dir(&self) -> PathBuf {
+        self.0.join("sync")
+    }
 }
 
 /// A controller that was approved on this machine.
