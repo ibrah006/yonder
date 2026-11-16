@@ -139,6 +139,11 @@ impl Command {
             Command::OpenTerminal { .. } => "attach_terminal",
             Command::ListTerminals => "list_terminals",
             Command::CloseTerminal(_) => "close_terminal",
+            Command::SyncPlan { .. } => "sync_plan",
+            Command::SyncPut { .. } => "sync_put",
+            Command::SyncApply { .. } => "sync_apply",
+            Command::ListFiles { .. } => "list_files",
+            Command::ReadFile { .. } => "read_file",
         }
     }
 
