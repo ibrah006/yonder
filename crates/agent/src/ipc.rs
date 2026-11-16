@@ -513,6 +513,7 @@ mod tests {
                 net: NetConfig::local_only(),
                 name: Some("box".into()),
                 jobs: None,
+                shell: None,
             },
             desk.approver(),
         )
