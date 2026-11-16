@@ -62,17 +62,27 @@ fn list() -> String {
         .join("\n")
 }
 
-/// `powershell -EncodedCommand` takes the script as base64 of UTF-16LE, so it arrives
-/// whole without quoting or a file to copy.
-fn encoded_powershell(script: &str) -> Vec<String> {
-    let utf16: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
+/// Arguments that run `script` in Windows PowerShell. The script travels as base64 inside
+/// a short command that writes it to a temporary file and runs it, so it arrives whole
+/// without quoting. (`-EncodedCommand` would be shorter, but Windows PowerShell then
+/// writes its messages as serialized XML instead of text.)
+fn powershell_args(script: &str) -> Vec<String> {
+    let payload = data_encoding::BASE64.encode(script.as_bytes());
+    let command = format!(
+        "$f = Join-Path $env:TEMP ('yonder-recipe-' + $PID + '.ps1'); \
+         [IO.File]::WriteAllText($f, [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{payload}'))); \
+         try {{ & $f; $code = $LASTEXITCODE }} finally {{ Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }}; \
+         exit $code"
+    );
     vec![
         "-NoProfile".into(),
         "-NonInteractive".into(),
         "-ExecutionPolicy".into(),
         "Bypass".into(),
-        "-EncodedCommand".into(),
-        data_encoding::BASE64.encode(&utf16),
+        "-OutputFormat".into(),
+        "Text".into(),
+        "-Command".into(),
+        command,
     ]
 }
 
@@ -100,7 +110,7 @@ pub async fn run(controller: &Controller, machine: &str, recipe: Option<&str>) -
     let spec = JobSpec {
         program: JobProgram::Exec {
             program: "powershell.exe".into(),
-            args: encoded_powershell(recipe.project_script),
+            args: powershell_args(recipe.project_script),
         },
         cwd: Some(synced.remote.clone()),
         env: Vec::new(),
@@ -143,15 +153,22 @@ mod tests {
     fn scripts_fit_on_a_windows_command_line() {
         // CreateProcess allows 32,767 characters for the whole line.
         for recipe in RECIPES {
-            let args = encoded_powershell(recipe.project_script);
+            let args = powershell_args(recipe.project_script);
             let length: usize = args.iter().map(|a| a.len() + 1).sum();
             assert!(length < 30_000, "{} is {length} characters", recipe.name);
         }
     }
 
     #[test]
-    fn encoding_is_utf16_base64() {
-        let args = encoded_powershell("hi");
-        assert_eq!(args.last().unwrap(), "aABpAA==");
+    fn script_travels_as_base64_in_a_plain_command() {
+        let args = powershell_args("exit 2");
+        assert_eq!(args[args.len() - 2], "-Command");
+        let command = args.last().unwrap();
+        assert!(
+            command.contains("FromBase64String('ZXhpdCAy')"),
+            "{command}"
+        );
+        // Arrives as one argument: nothing Windows quoting would need to escape.
+        assert!(!command.contains('"'));
     }
 }
