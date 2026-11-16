@@ -186,7 +186,7 @@ fn run_as_service(args: Args) -> Result<()> {
     let (net, mut jobs) = settings(&args)?;
     let shell = use_build_user(&args, &state, &mut jobs)?;
     service::run(Box::new(move |stop| {
-        tokio::runtime::Runtime::new()?.block_on(run_until(&state, net, None, jobs, async {
+        tokio::runtime::Runtime::new()?.block_on(run_until(&state, net, None, jobs, shell, async {
             let _ = stop.await;
         }))
     }))
