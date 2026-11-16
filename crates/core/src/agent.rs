@@ -28,6 +28,7 @@ use crate::protocol::{
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
 use crate::terminal::{Session, ShellCommand, TerminalInput, TerminalManager};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
+use crate::workspace::Workspaces;
 
 /// How long someone at the machine has to approve a pairing request.
 pub const APPROVAL_TIMEOUT: Duration = Duration::from_secs(120);
