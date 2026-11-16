@@ -1,8 +1,9 @@
 //! `--sync`, `--pull`, `yonder sync` and `yonder pull`: the project you're in, on a machine.
 //!
 //! The project is the git repository around the current folder. Its files (tracked and
-//! untracked, minus ignored ones) are copied to a workspace on the machine; only changes
-//! are sent. Ignored files on the machine, such as build folders, stay between runs.
+//! untracked, minus ignored ones, plus any ignored ones `.yonderinclude` lists) are copied
+//! to a workspace on the machine; only changes are sent. Ignored files on the machine,
+//! such as build folders, stay between runs.
 
 use std::path::{Path, PathBuf};
 
