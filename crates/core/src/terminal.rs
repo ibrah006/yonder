@@ -9,6 +9,7 @@
 //! N" replays exactly what that client missed, the same way job logs work.
 
 use std::collections::{HashMap, VecDeque};
+use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
