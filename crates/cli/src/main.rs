@@ -5,6 +5,7 @@
 
 mod jobs;
 mod shell;
+mod workspace;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
