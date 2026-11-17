@@ -185,6 +185,11 @@ impl StateDir {
     pub fn sync_dir(&self) -> PathBuf {
         self.0.join("sync")
     }
+
+    /// Secrets controllers saved for their jobs.
+    pub fn secrets_dir(&self) -> PathBuf {
+        self.0.join("secrets")
+    }
 }
 
 /// A controller that was approved on this machine.
