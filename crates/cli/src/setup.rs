@@ -12,6 +12,8 @@ use anyhow::{Result, bail};
 use yonder_core::Os;
 use yonder_core::controller::Controller;
 use yonder_core::jobs::{JobProgram, JobSpec};
+use yonder_core::protocol::now_ms;
+use yonder_core::secrets::{SecretName, SecretTarget, SecretUse};
 
 /// A recipe the CLI carries.
 struct Recipe {
@@ -23,6 +25,8 @@ struct Recipe {
     machine_script: &'static str,
     /// PowerShell run as the build account, in the project's workspace.
     project_script: &'static str,
+    /// Saved secrets the project part uses when present, as environment variables.
+    secrets: &'static [&'static str],
 }
 
 const RECIPES: &[Recipe] = &[Recipe {
@@ -31,6 +35,7 @@ const RECIPES: &[Recipe] = &[Recipe {
     about: "Flutter apps for Windows, with Shorebird when the project uses it",
     machine_script: r"recipes\flutter-windows\machine.ps1",
     project_script: include_str!("../../../recipes/flutter-windows/project.ps1"),
+    secrets: &["SHOREBIRD_TOKEN"],
 }];
 
 /// Exit code of a project script that finished but left things to do.
@@ -107,6 +112,22 @@ pub async fn run(controller: &Controller, machine: &str, recipe: Option<&str>) -
         recipe.name
     );
     let synced = crate::workspace::sync_here(controller, &machine).await?;
+    // Saved secrets the recipe checks (a Shorebird token), when this device has them.
+    let saved = controller.secrets(&machine).await.unwrap_or_default();
+    let secrets = recipe
+        .secrets
+        .iter()
+        .filter(|name| {
+            saved
+                .iter()
+                .any(|s| s.name.as_str() == **name && !s.expired(now_ms()))
+        })
+        .filter_map(|name| SecretName::parse(name))
+        .map(|name| SecretUse {
+            target: SecretTarget::Env(name.as_str().to_string()),
+            name,
+        })
+        .collect();
     let spec = JobSpec {
         program: JobProgram::Exec {
             program: "powershell.exe".into(),
@@ -115,7 +136,7 @@ pub async fn run(controller: &Controller, machine: &str, recipe: Option<&str>) -
         cwd: Some(synced.remote.clone()),
         env: Vec::new(),
         label: Some(format!("setup {}", recipe.name)),
-        secrets: Vec::new(),
+        secrets,
     };
     let job = controller.run(&machine, spec).await?;
     eprintln!(
