@@ -338,7 +338,8 @@ async fn audit_log_records_who_ran_what() {
     assert_eq!(ran.controller_name.as_deref(), Some("mac"));
     let detail = ran.detail.as_deref().unwrap();
     assert!(detail.contains(job.meta.id.as_str()) && detail.contains("echo audited"));
-    assert!(ran.request.is_some() && ran.signature.is_some());
+    // The raw request would carry the env value, so only the signature is kept.
+    assert!(ran.request.is_none() && ran.signature.is_some());
 
     let refused = entries
         .iter()
