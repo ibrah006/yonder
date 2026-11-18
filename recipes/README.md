@@ -47,25 +47,25 @@ Shorebird for the build account. Finally it checks Inno Setup and the files
 `.yonderinclude` lists, and ends with `flutter doctor`. If anything is still missing, it
 exits with code 2 and lists it.
 
-Shorebird signs in with a token. On your computer, run `shorebird login:ci`. Then open
-`yonder shell win` and run:
-
-```powershell
-[Environment]::SetEnvironmentVariable('SHOREBIRD_TOKEN', '<token>', 'User')
-```
-
-Use the shell rather than a job: a job's command is written to the machine's audit log,
-and keys typed into a shell are not.
+Shorebird signs in with a token, which you save as a Yonder secret. On your computer,
+run `shorebird login:ci`, then `yonder secret set win SHOREBIRD_TOKEN` and paste the
+token when asked. A job gets it only when it asks for it with
+`yonder run win --secret SHOREBIRD_TOKEN -- …`, and `yonder setup` passes it along when
+it's saved. Signing keys work the same way, as files:
+`yonder secret set win dsa_priv.pem --file dsa_priv.pem`, then
+`--secret-file dsa_priv.pem` on the job that signs.
 
 ## Files git ignores
 
-Builds often need files that git ignores, such as `.env` or signing keys. List them in
+Builds often need files that git ignores, such as `.env`. List them in
 `.yonderinclude` at the project root, one path or glob per line, and Yonder sends them
 with every sync:
 
 ```
-# needed to build and sign a release
+# needed to build a release
 .env
-dsa_priv.pem
 dsa_pub.pem
 ```
+
+Private keys and tokens are better saved as secrets (above): a synced file stays in the
+machine's copy of the project, while a secret file exists only while its job runs.
