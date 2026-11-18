@@ -17,6 +17,8 @@
 //! | `status.json` | both       | queued / running / finished, exit code    |
 //! | `output.log`  | the command| stdout and stderr, interleaved            |
 //! | `cancel`      | agent      | present when cancellation was requested   |
+//! | `secrets.bin` | agent      | values of the secrets the job asked for; the runner reads and deletes it |
+//! | `secret-files.json` | runner | secret files written for the job, deleted when it ends |
 
 pub mod manager;
 pub mod runner;
@@ -31,6 +33,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Error, Result};
 use crate::identity::DeviceId;
 use crate::protocol::now_ms;
+use crate::secrets::{Resolved, SecretTarget, SecretUse};
 use crate::store;
 
 pub use sys::process_alive;
@@ -54,6 +57,9 @@ pub struct JobSpec {
     pub env: Vec<(String, String)>,
     /// Short label shown in job lists, e.g. "release windows".
     pub label: Option<String>,
+    /// Saved secrets the job gets (see [`crate::secrets`]). Only names travel here.
+    #[serde(default)]
+    pub secrets: Vec<SecretUse>,
 }
 
 impl JobSpec {
@@ -64,6 +70,7 @@ impl JobSpec {
             cwd: None,
             env: Vec::new(),
             label: None,
+            secrets: Vec::new(),
         }
     }
 
@@ -84,6 +91,10 @@ impl JobSpec {
         if !self.env.is_empty() {
             let names: Vec<_> = self.env.iter().map(|(k, _)| k.as_str()).collect();
             summary.push_str(&format!(" [env: {}]", names.join(", ")));
+        }
+        if !self.secrets.is_empty() {
+            let uses: Vec<_> = self.secrets.iter().map(ToString::to_string).collect();
+            summary.push_str(&format!(" [secrets: {}]", uses.join(", ")));
         }
         summary
     }
@@ -215,7 +226,8 @@ impl JobStatus {
     }
 }
 
-/// Everything about a job, as sent to controllers.
+/// Everything about a job, as sent to controllers. Environment values are left out: any
+/// paired device may list jobs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobInfo {
     pub meta: JobMeta,
@@ -233,6 +245,8 @@ const META: &str = "job.json";
 const STATUS: &str = "status.json";
 const LOG: &str = "output.log";
 const CANCEL: &str = "cancel";
+const SECRETS: &str = "secrets.bin";
+const SECRET_FILES: &str = "secret-files.json";
 
 impl JobStore {
     pub fn new(dir: impl Into<PathBuf>) -> Self {
@@ -297,6 +311,20 @@ impl JobStore {
         Ok(buf)
     }
 
+    /// Hands secret values to the job's runner, which deletes them once read.
+    pub fn write_secrets(&self, id: &JobId, secrets: &[Resolved]) -> Result<()> {
+        let bytes = postcard::to_stdvec(secrets).expect("secrets are always serializable");
+        store::write_secret_file(&self.job_dir(id).join(SECRETS), &bytes)
+    }
+
+    /// Removes whatever secrets a job left behind: values its runner never read (it was
+    /// cancelled while queued) and files a runner that died didn't delete.
+    pub fn scrub(&self, id: &JobId) {
+        let dir = self.job_dir(id);
+        let _ = std::fs::remove_file(dir.join(SECRETS));
+        remove_secret_files(&dir);
+    }
+
     /// Asks the job's runner to stop.
     pub fn request_cancel(&self, id: &JobId) -> Result<()> {
         let path = self.job_dir(id).join(CANCEL);
@@ -313,8 +341,78 @@ impl JobStore {
     }
 }
 
+/// Reads and deletes the secret values the agent left for the job in `dir`.
+pub(crate) fn take_secrets(dir: &Path) -> Result<Vec<Resolved>> {
+    let path = dir.join(SECRETS);
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(Error::io(&path, e)),
+    };
+    std::fs::remove_file(&path).map_err(|e| Error::io(&path, e))?;
+    postcard::from_bytes(&bytes).map_err(|e| Error::CorruptFile {
+        path,
+        message: e.to_string(),
+    })
+}
+
+/// Writes the job's secret files into `cwd`, recording them first so they can be removed
+/// even if the runner dies.
+pub(crate) fn write_secret_files(dir: &Path, cwd: &Path, secrets: &[Resolved]) -> Result<()> {
+    let paths: Vec<PathBuf> = secrets
+        .iter()
+        .filter_map(|s| match &s.target {
+            SecretTarget::File(relative) => Some(cwd.join(relative)),
+            SecretTarget::Env(_) => None,
+        })
+        .collect();
+    if paths.is_empty() {
+        return Ok(());
+    }
+    write_json(&dir.join(SECRET_FILES), &paths)?;
+    for (secret, path) in secrets
+        .iter()
+        .filter(|s| matches!(s.target, SecretTarget::File(_)))
+        .zip(&paths)
+    {
+        write_owner_only(path, &secret.value).map_err(|e| Error::io(path, e))?;
+    }
+    Ok(())
+}
+
+/// Writes a file only its owner can read, leaving the folder's permissions alone (it's
+/// the job's folder, not ours).
+fn write_owner_only(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(path)?.write_all(contents)
+}
+
+/// Deletes the secret files recorded for the job in `dir`.
+pub(crate) fn remove_secret_files(dir: &Path) {
+    let list = dir.join(SECRET_FILES);
+    if let Ok(paths) = read_json::<Vec<PathBuf>>(&list) {
+        for path in paths {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+    let _ = std::fs::remove_file(list);
+}
+
 fn info_in(dir: &Path) -> Result<JobInfo> {
-    let meta: JobMeta = read_json(&dir.join(META))?;
+    let mut meta: JobMeta = read_json(&dir.join(META))?;
+    for (_, value) in &mut meta.spec.env {
+        value.clear();
+    }
     let status: JobStatus = read_json(&dir.join(STATUS))?;
     let log_bytes = std::fs::metadata(dir.join(LOG))
         .map(|m| m.len())
