@@ -25,6 +25,7 @@ use crate::protocol::{
     PairResponse, RemoteError, ReplayGuard, Response, SignedRequest, close_code, now_ms,
     read_frame, read_message, write_frame, write_message,
 };
+use crate::secrets::{SecretStore, UseError};
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
 use crate::terminal::{Session, ShellCommand, TerminalInput, TerminalManager};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
@@ -153,6 +154,7 @@ struct Inner {
     audit: AuditLog,
     terminals: Arc<TerminalManager>,
     workspaces: Arc<Workspaces>,
+    secrets: SecretStore,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -204,6 +206,7 @@ impl Agent {
                 config.state.workspaces_dir(),
                 config.state.sync_dir(),
             )),
+            secrets: SecretStore::new(config.state.secrets_dir()),
         });
         tokio::spawn(accept_loop(inner.clone()));
         info!(id = %inner.id, name = %inner.machine_name, "agent started");
@@ -476,6 +479,21 @@ async fn decide(
                     "the owner paused new jobs on this machine",
                 ));
             }
+            // Environment values don't belong in the audit log.
+            if !spec.env.is_empty() {
+                audit.request = None;
+            }
+            let secrets = inner
+                .secrets
+                .resolve(peer, &spec.secrets)
+                .map_err(internal)?
+                .map_err(|e| {
+                    let code = match e {
+                        UseError::BadTarget(_) => ErrorCode::BadRequest,
+                        UseError::Missing(_) | UseError::Expired(_) => ErrorCode::NotFound,
+                    };
+                    RemoteError::new(code, e.to_string())
+                })?;
             let meta = JobMeta {
                 id: JobId::generate(),
                 spec,
@@ -485,7 +503,7 @@ async fn decide(
             };
             audit.detail = Some(format!("{}: {}", meta.id, meta.spec.summary()));
             Reply::One(Box::new(Response::Job(
-                jobs.submit(meta).map_err(internal)?,
+                jobs.submit(meta, &secrets).map_err(internal)?,
             )))
         }
         Command::ListJobs => Reply::One(Box::new(Response::Jobs(inner.jobs()?.list()))),
@@ -590,6 +608,32 @@ async fn decide(
             })
             .await?;
             Reply::One(Box::new(Response::FileData(data)))
+        }
+        Command::SetSecret {
+            name,
+            value,
+            expires_at_ms,
+            note,
+        } => {
+            // The value must never reach the audit log.
+            audit.request = None;
+            let info = inner
+                .secrets
+                .set(peer, name, value, expires_at_ms, note)
+                .map_err(|e| RemoteError::new(ErrorCode::BadRequest, e.to_string()))?;
+            Reply::One(Box::new(Response::Secret(info)))
+        }
+        Command::ListSecrets => Reply::One(Box::new(Response::Secrets(
+            inner.secrets.list(peer).map_err(internal)?,
+        ))),
+        Command::RemoveSecret(name) => {
+            if !inner.secrets.remove(peer, &name).map_err(internal)? {
+                return Err(RemoteError::new(
+                    ErrorCode::NotFound,
+                    format!("no secret {name} from this device here"),
+                ));
+            }
+            Reply::One(Box::new(Response::Done))
         }
     })
 }
