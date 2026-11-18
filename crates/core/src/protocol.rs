@@ -432,6 +432,15 @@ impl RemoteError {
 
 impl fmt::Display for RemoteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // An older agent can't read a command it doesn't know; say that plainly.
+        if self.code == ErrorCode::BadRequest && self.message.contains("Deserialization") {
+            return write!(
+                f,
+                "the machine's agent is older than this yonder and doesn't know this command; \
+                 update the agent on the machine (git pull, cargo build --release, then \
+                 `yonder-agent service install` as admin)"
+            );
+        }
         write!(f, "machine refused: {} ({:?})", self.message, self.code)
     }
 }
