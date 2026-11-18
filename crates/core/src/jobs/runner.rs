@@ -6,7 +6,7 @@
 
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::time::Duration;
 
@@ -15,7 +15,8 @@ use crate::protocol::now_ms;
 
 use super::sys::{self, KeepAwake, TreeGuard};
 use super::{CANCEL, JobMeta, JobProgram, JobSpec, JobState, JobStatus, LOG, META, STATUS};
-use super::{read_json, write_json};
+use super::{read_json, remove_secret_files, take_secrets, write_json, write_secret_files};
+use crate::secrets::{Resolved, SecretTarget};
 
 const POLL: Duration = Duration::from_millis(200);
 
@@ -45,7 +46,24 @@ pub fn run(job_dir: &Path) -> Result<JobState> {
     status.started_at_ms = Some(now_ms());
     write_json(&status_path, &status)?;
 
-    let mut child = match build_command(&meta.spec, &log) {
+    // Taken before anything else can fail, so the values don't stay on disk.
+    let secrets = take_secrets(job_dir);
+    // Secret files go when the job ends, however it ends.
+    let _secret_files = SecretFiles(job_dir);
+    let started = secrets.map_err(std::io::Error::other).and_then(|secrets| {
+        let command = build_command(&meta.spec, &log, &secrets)?;
+        if secrets
+            .iter()
+            .any(|s| matches!(s.target, SecretTarget::File(_)))
+        {
+            let cwd = job_cwd(&meta.spec).ok_or_else(|| {
+                std::io::Error::other("secret files need a working folder for the job")
+            })?;
+            write_secret_files(job_dir, &cwd, &secrets).map_err(std::io::Error::other)?;
+        }
+        Ok(command)
+    });
+    let mut child = match started {
         Ok(mut command) => match command.spawn() {
             Ok(child) => child,
             Err(err) => return fail_to_start(&mut log, &status_path, status, err),
@@ -75,8 +93,9 @@ pub fn run(job_dir: &Path) -> Result<JobState> {
         if job_dir.join(CANCEL).exists() {
             let _ = writeln!(log, "\n[yonder] cancelled");
             let status = status.finish(JobState::Cancelled, None);
-            // Record first: on Windows stopping the tree also ends this runner.
+            // Record and clean up first: on Windows stopping the tree also ends this runner.
             write_json(&status_path, &status)?;
+            remove_secret_files(job_dir);
             match &tree {
                 Some(tree) => tree.stop(&mut child),
                 None => {
@@ -132,7 +151,28 @@ fn describe_signal(_exit: ExitStatus) -> String {
     "ended without an exit code".to_string()
 }
 
-fn build_command(spec: &JobSpec, log: &std::fs::File) -> std::io::Result<Command> {
+/// Deletes the job's secret files when dropped.
+struct SecretFiles<'a>(&'a Path);
+
+impl Drop for SecretFiles<'_> {
+    fn drop(&mut self) {
+        remove_secret_files(self.0);
+    }
+}
+
+/// Where the job runs: the folder it asked for, or the home folder.
+fn job_cwd(spec: &JobSpec) -> Option<PathBuf> {
+    match &spec.cwd {
+        Some(cwd) => Some(PathBuf::from(cwd)),
+        None => directories::BaseDirs::new().map(|d| d.home_dir().to_owned()),
+    }
+}
+
+fn build_command(
+    spec: &JobSpec,
+    log: &std::fs::File,
+    secrets: &[Resolved],
+) -> std::io::Result<Command> {
     let mut command = match &spec.program {
         JobProgram::Shell(script) => shell_command(script),
         JobProgram::Exec { program, args } => {
@@ -146,15 +186,18 @@ fn build_command(spec: &JobSpec, log: &std::fs::File) -> std::io::Result<Command
         .stdout(log.try_clone()?)
         .stderr(log.try_clone()?)
         .envs(spec.env.iter().map(|(k, v)| (k, v)));
-    match &spec.cwd {
-        Some(cwd) => {
-            command.current_dir(cwd);
+    for secret in secrets {
+        if let SecretTarget::Env(name) = &secret.target {
+            let value = std::str::from_utf8(&secret.value).map_err(|_| {
+                std::io::Error::other(format!(
+                    "the secret for ${name} isn't text; use it as a file instead"
+                ))
+            })?;
+            command.env(name, value);
         }
-        None => {
-            if let Some(home) = directories::BaseDirs::new().map(|d| d.home_dir().to_owned()) {
-                command.current_dir(home);
-            }
-        }
+    }
+    if let Some(cwd) = job_cwd(spec) {
+        command.current_dir(cwd);
     }
     sys::prepare_command(&mut command);
     Ok(command)
@@ -261,6 +304,7 @@ mod tests {
             cwd: None,
             env: vec![],
             label: None,
+            secrets: vec![],
         };
         let (store, id, state, _dir) = run_spec(spec);
         assert_eq!(state, JobState::Failed);
