@@ -120,8 +120,7 @@ pub fn install(state_dir: &Path, agent_args: Vec<OsString>, build_user: bool) ->
     let current = std::env::current_exe()?;
     if !same_file(&current, &target) {
         std::fs::create_dir_all(target.parent().expect("install path has a parent"))?;
-        std::fs::copy(&current, &target)
-            .with_context(|| format!("couldn't copy the agent to {}", target.display()))?;
+        replace_exe(&current, &target)?;
     }
     secure_dir(state_dir)?;
     if build_user {
