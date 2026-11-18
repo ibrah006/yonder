@@ -13,6 +13,7 @@ use tracing::{debug, info, warn};
 use super::sys;
 use super::{JobId, JobInfo, JobMeta, JobState, JobStatus, JobStore};
 use crate::error::Result;
+use crate::secrets::Resolved;
 
 /// How long a runner gets to stop after a cancel request before it's killed.
 const CANCEL_GRACE: Duration = Duration::from_secs(15);
@@ -86,9 +87,13 @@ impl JobManager {
         self.slots.lock().unwrap_or_else(|p| p.into_inner())
     }
 
-    /// Queues a new job and starts it if there's a free slot.
-    pub fn submit(self: &Arc<Self>, meta: JobMeta) -> Result<JobInfo> {
+    /// Queues a new job and starts it if there's a free slot. `secrets` are the values of
+    /// the secrets it asked for; only its runner reads them.
+    pub fn submit(self: &Arc<Self>, meta: JobMeta, secrets: &[Resolved]) -> Result<JobInfo> {
         self.store.create(&meta)?;
+        if !secrets.is_empty() {
+            self.store.write_secrets(&meta.id, secrets)?;
+        }
         self.slots().queue.push_back(meta.id.clone());
         info!(job = %meta.id, controller = %meta.controller_name, "job queued");
         self.pump();
@@ -109,6 +114,7 @@ impl JobManager {
                 self.slots().queue.retain(|q| q != id);
                 self.store
                     .write_status(id, &info.status.finish(JobState::Cancelled, None))?;
+                self.store.scrub(id);
             }
             JobState::Running => {
                 self.store.request_cancel(id)?;
@@ -204,6 +210,8 @@ impl JobManager {
                 .store
                 .write_status(id, &info.status.finish(JobState::Lost, Some(message)));
         }
+        // Whatever the runner left, including after a crash.
+        self.store.scrub(id);
         if let Ok(info) = self.store.info(id) {
             info!(job = %id, state = %info.status.state, "job finished");
         }
@@ -241,6 +249,7 @@ impl JobManager {
                             &id,
                             &job.status.finish(JobState::Lost, Some(message.into())),
                         );
+                        self.store.scrub(&id);
                     }
                 }
                 _ => {}
