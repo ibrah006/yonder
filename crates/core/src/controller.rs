@@ -19,6 +19,7 @@ use crate::protocol::{
     RemoteError, Response, SignedRequest, close_code, read_frame, read_message, write_frame,
     write_message,
 };
+use crate::secrets::{SecretInfo, SecretName};
 use crate::store::{ControllerState, PairedMachine, StateDir, default_device_name, now_secs};
 use crate::terminal::{SessionId, TerminalInfo, TerminalInput};
 use crate::ticket::{PairingTicket, pairing_proof};
@@ -562,6 +563,46 @@ impl Controller {
         match self.request(machine, Command::ListTerminals).await? {
             Response::Terminals(list) => Ok(list),
             other => Err(unexpected("terminals", &other)),
+        }
+    }
+
+    /// Saves (or replaces) a secret on the machine for this device's jobs.
+    pub async fn set_secret(
+        &self,
+        machine: &PairedMachine,
+        name: SecretName,
+        value: Vec<u8>,
+        expires_at_ms: Option<u64>,
+        note: Option<String>,
+    ) -> Result<SecretInfo> {
+        let command = Command::SetSecret {
+            name,
+            value,
+            expires_at_ms,
+            note,
+        };
+        match self.request(machine, command).await? {
+            Response::Secret(info) => Ok(info),
+            other => Err(unexpected("a secret", &other)),
+        }
+    }
+
+    /// This device's secrets on the machine, without values.
+    pub async fn secrets(&self, machine: &PairedMachine) -> Result<Vec<SecretInfo>> {
+        match self.request(machine, Command::ListSecrets).await? {
+            Response::Secrets(list) => Ok(list),
+            other => Err(unexpected("secrets", &other)),
+        }
+    }
+
+    /// Deletes one of this device's secrets on the machine.
+    pub async fn remove_secret(&self, machine: &PairedMachine, name: &SecretName) -> Result<()> {
+        match self
+            .request(machine, Command::RemoveSecret(name.clone()))
+            .await?
+        {
+            Response::Done => Ok(()),
+            other => Err(unexpected("done", &other)),
         }
     }
 
