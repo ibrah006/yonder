@@ -20,6 +20,7 @@ use crate::error::{Error, Result};
 use crate::identity::{DeviceId, DeviceKey};
 use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::permissions::{Permission, Permissions};
+use crate::secrets::{SecretInfo, SecretName};
 use crate::terminal::{SessionId, TerminalInfo};
 use crate::workspace::{BlobPart, FileEntry, Hash, WorkspaceId};
 
@@ -102,6 +103,18 @@ pub enum Command {
         path: String,
         offset: u64,
     },
+    /// Save (or replace) one of this controller's secrets. Answered with
+    /// [`Response::Secret`]. The value is never logged.
+    SetSecret {
+        name: SecretName,
+        value: Vec<u8>,
+        expires_at_ms: Option<u64>,
+        note: Option<String>,
+    },
+    /// This controller's secrets, without values. Answered with [`Response::Secrets`].
+    ListSecrets,
+    /// Delete one of this controller's secrets. Answered with [`Response::Done`].
+    RemoveSecret(SecretName),
 }
 
 impl Command {
@@ -118,7 +131,10 @@ impl Command {
             | Command::SyncPut { .. }
             | Command::SyncApply { .. }
             | Command::ListFiles { .. }
-            | Command::ReadFile { .. } => Some(Permission::RunJobs),
+            | Command::ReadFile { .. }
+            | Command::SetSecret { .. }
+            | Command::ListSecrets
+            | Command::RemoveSecret(_) => Some(Permission::RunJobs),
             Command::OpenTerminal { .. } | Command::ListTerminals | Command::CloseTerminal(_) => {
                 Some(Permission::Terminal)
             }
@@ -144,13 +160,21 @@ impl Command {
             Command::SyncApply { .. } => "sync_apply",
             Command::ListFiles { .. } => "list_files",
             Command::ReadFile { .. } => "read_file",
+            Command::SetSecret { .. } => "set_secret",
+            Command::ListSecrets => "list_secrets",
+            Command::RemoveSecret(_) => "remove_secret",
         }
     }
 
     /// Details for the audit log: the command line for new jobs, the job id otherwise.
     pub fn detail(&self) -> Option<String> {
         match self {
-            Command::Ping | Command::Info | Command::ListJobs | Command::ListTerminals => None,
+            Command::Ping
+            | Command::Info
+            | Command::ListJobs
+            | Command::ListTerminals
+            | Command::ListSecrets => None,
+            Command::SetSecret { name, .. } | Command::RemoveSecret(name) => Some(name.to_string()),
             Command::OpenTerminal { session, .. } => session.as_ref().map(ToString::to_string),
             Command::CloseTerminal(id) => Some(id.to_string()),
             Command::RunJob(spec) => Some(spec.summary()),
@@ -261,7 +285,7 @@ fn signed_bytes(body: &[u8]) -> Vec<u8> {
     out
 }
 
-pub(crate) fn now_ms() -> u64 {
+pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -355,6 +379,8 @@ pub enum Response {
     },
     Files(Vec<FileEntry>),
     FileData(Vec<u8>),
+    Secret(SecretInfo),
+    Secrets(Vec<SecretInfo>),
 }
 
 /// Description of a machine, as seen by one controller.
