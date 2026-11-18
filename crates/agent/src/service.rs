@@ -57,6 +57,47 @@ pub fn secure_dir(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Copies the agent to `target`. Job runners and shell helpers started from the old copy
+/// keep running across a reinstall and hold the file open; Windows can't overwrite a
+/// running program but can rename it, so a busy copy is moved aside and deleted on a
+/// later install, once nothing uses it.
+fn replace_exe(current: &Path, target: &Path) -> Result<()> {
+    let dir = target.parent().expect("install path has a parent");
+    // Earlier copies that were in use then; some may still be.
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with("yonder-agent.old-") && name.ends_with(".exe") {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+    match std::fs::copy(current, target) {
+        Ok(_) => return Ok(()),
+        // 32: in use by another process.
+        Err(e) if e.raw_os_error() == Some(32) => {}
+        Err(e) => {
+            return Err(e)
+                .with_context(|| format!("couldn't copy the agent to {}", target.display()));
+        }
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
+    let aside = dir.join(format!("yonder-agent.old-{stamp}.exe"));
+    std::fs::rename(target, &aside).with_context(|| {
+        format!(
+            "{} is in use and couldn't be moved aside; stop running jobs or shells and try again",
+            target.display()
+        )
+    })?;
+    println!("The old agent is still in use by a running job or shell; it was moved aside.");
+    std::fs::copy(current, target)
+        .with_context(|| format!("couldn't copy the agent to {}", target.display()))?;
+    Ok(())
+}
+
 /// Installs or updates the service. `agent_args` are passed before `service run`. With
 /// `build_user`, jobs and shells run as the limited build user instead of LocalSystem.
 pub fn install(state_dir: &Path, agent_args: Vec<OsString>, build_user: bool) -> Result<()> {
