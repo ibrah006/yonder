@@ -100,9 +100,9 @@ if (Test-Path shorebird.yaml) {
       Need "Shorebird has no Flutter $version yet; update it: yonder run win -- shorebird upgrade"
     }
     if ($env:SHOREBIRD_TOKEN) {
-      Ok 'signed in (SHOREBIRD_TOKEN)'
+      Ok 'signed in (SHOREBIRD_TOKEN secret)'
     } else {
-      Need 'sign Shorebird in: on your Mac run `shorebird login:ci`, then in `yonder shell win` run [Environment]::SetEnvironmentVariable(''SHOREBIRD_TOKEN'', ''<token>'', ''User'')'
+      Need 'save the Shorebird token as a secret: on your Mac run `shorebird login:ci`, then `yonder secret set win SHOREBIRD_TOKEN` and paste it (jobs get it with --secret SHOREBIRD_TOKEN)'
     }
     & shorebird doctor
   } else {
