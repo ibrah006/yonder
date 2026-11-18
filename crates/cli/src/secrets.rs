@@ -16,7 +16,7 @@ pub enum SecretCmd {
     /// Save a secret on a machine for your jobs.
     ///
     /// The value comes from --file, from stdin when piped, or is typed (hidden).
-    /// Example: shorebird login:ci | yonder secret set win SHOREBIRD_TOKEN
+    /// Example: yonder secret set win SHOREBIRD_TOKEN   (then paste the token)
     Set {
         machine: String,
         name: String,
