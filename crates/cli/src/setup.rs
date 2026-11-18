@@ -115,6 +115,7 @@ pub async fn run(controller: &Controller, machine: &str, recipe: Option<&str>) -
         cwd: Some(synced.remote.clone()),
         env: Vec::new(),
         label: Some(format!("setup {}", recipe.name)),
+        secrets: Vec::new(),
     };
     let job = controller.run(&machine, spec).await?;
     eprintln!(
