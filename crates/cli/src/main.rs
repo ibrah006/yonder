@@ -4,6 +4,7 @@
 //! `linux`, `any`), in which case the least busy reachable one is used.
 
 mod jobs;
+mod secrets;
 mod setup;
 mod shell;
 mod workspace;
@@ -108,6 +109,11 @@ enum Cmd {
         /// Recipe to use (default: the one that fits the project).
         #[arg(long)]
         recipe: Option<String>,
+    },
+    /// Save, list or delete secrets your jobs use on a machine (tokens, signing keys).
+    Secret {
+        #[command(subcommand)]
+        what: secrets::SecretCmd,
     },
     /// Show every paired machine: online, paused, busy.
     Status,
@@ -247,6 +253,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
         Cmd::Setup { machine, recipe } => {
             return setup::run(controller, &machine, recipe.as_deref()).await;
         }
+        Cmd::Secret { what } => secrets::run(controller, what).await?,
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
