@@ -7,6 +7,7 @@ use std::time::Duration;
 use anyhow::{Result, bail};
 use yonder_core::controller::Controller;
 use yonder_core::jobs::{JobId, JobInfo, JobProgram, JobSpec, JobState};
+use yonder_core::secrets::{SecretName, SecretTarget, SecretUse};
 use yonder_core::store::{PairedMachine, format_datetime_ms};
 
 #[derive(Debug, clap::Args)]
@@ -36,6 +37,14 @@ pub struct RunArgs {
     /// such as `build/windows/**`) back here. Implies --sync. Repeatable.
     #[arg(long, value_name = "PATTERN")]
     pub pull: Vec<String>,
+    /// Give the job one of your saved secrets (`yonder secret set`) as an environment
+    /// variable: NAME, or NAME=VARIABLE. Repeatable.
+    #[arg(long, value_name = "NAME[=VAR]")]
+    pub secret: Vec<String>,
+    /// Give the job a saved secret as a file in its folder: NAME, or NAME=PATH. The file
+    /// is deleted when the job ends. Repeatable.
+    #[arg(long, value_name = "NAME[=PATH]")]
+    pub secret_file: Vec<String>,
     /// The command, after `--`.
     #[arg(last = true, required = true, num_args = 1..)]
     pub command: Vec<String>,
@@ -62,13 +71,37 @@ impl RunArgs {
                 _ => bail!("--env needs NAME=value, got \"{pair}\""),
             })
             .collect::<Result<_>>()?;
+        let mut secrets = Vec::new();
+        for (list, as_file) in [(&self.secret, false), (&self.secret_file, true)] {
+            for item in list {
+                secrets.push(secret_use(item, as_file)?);
+            }
+        }
         Ok(JobSpec {
             program,
             cwd: self.cwd.clone(),
             env,
             label: self.label.clone(),
+            secrets,
         })
     }
+}
+
+/// `NAME` or `NAME=TARGET` from --secret / --secret-file.
+fn secret_use(item: &str, as_file: bool) -> Result<SecretUse> {
+    let (name, target) = item.split_once('=').unwrap_or((item, item));
+    let Some(name) = SecretName::parse(name) else {
+        bail!("\"{name}\" isn't a secret name (letters, digits, _ - . up to 64)");
+    };
+    let target = if as_file {
+        SecretTarget::File(target.replace('\\', "/"))
+    } else {
+        SecretTarget::Env(target.to_string())
+    };
+    if let Err(message) = target.check() {
+        bail!(message);
+    }
+    Ok(SecretUse { name, target })
 }
 
 pub async fn run(controller: &Controller, args: RunArgs) -> Result<ExitCode> {
@@ -333,8 +366,31 @@ mod tests {
             exec: false,
             sync: false,
             pull: vec![],
+            secret: vec![],
+            secret_file: vec![],
             command: command.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    #[test]
+    fn secret_flags_name_their_targets() {
+        let mut a = args(&["x"]);
+        a.secret = vec!["TOKEN".into(), "TOKEN=SHOREBIRD_TOKEN".into()];
+        a.secret_file = vec!["dsa_priv.pem".into(), "key=keys\\k.pem".into()];
+        let spec = a.spec().unwrap();
+        let targets: Vec<_> = spec.secrets.iter().map(|s| s.target.clone()).collect();
+        assert_eq!(
+            targets,
+            [
+                SecretTarget::Env("TOKEN".into()),
+                SecretTarget::Env("SHOREBIRD_TOKEN".into()),
+                SecretTarget::File("dsa_priv.pem".into()),
+                SecretTarget::File("keys/k.pem".into()),
+            ]
+        );
+        let mut bad = args(&["x"]);
+        bad.secret_file = vec!["k=../outside".into()];
+        assert!(bad.spec().is_err());
     }
 
     #[test]
