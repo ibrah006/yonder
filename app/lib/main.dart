@@ -49,6 +49,7 @@ class _HomeState extends State<Home> {
   List<Machine> machines = [];
   final Map<String, MachineStatus?> status = {};
   final Map<String, String> statusError = {};
+  final Map<String, DateTime> lastSeen = {};
   String? selected;
   Timer? refresh;
 
@@ -90,6 +91,7 @@ class _HomeState extends State<Home> {
         setState(() {
           status[m.id] = s;
           statusError.remove(m.id);
+          lastSeen[m.id] = DateTime.now();
         });
       }).catchError((Object e) {
         if (!mounted) return;
@@ -146,6 +148,7 @@ class _HomeState extends State<Home> {
                           machine: m,
                           status: status[m.id],
                           error: statusError[m.id],
+                          lastSeen: lastSeen[m.id],
                           selected: m.id == selected,
                           onTap: () => setState(() => selected = m.id),
                         ),
@@ -194,6 +197,7 @@ class _MachineTile extends StatelessWidget {
     required this.machine,
     required this.status,
     required this.error,
+    required this.lastSeen,
     required this.selected,
     required this.onTap,
   });
@@ -201,6 +205,7 @@ class _MachineTile extends StatelessWidget {
   final Machine machine;
   final MachineStatus? status;
   final String? error;
+  final DateTime? lastSeen;
   final bool selected;
   final VoidCallback onTap;
 
@@ -218,15 +223,20 @@ class _MachineTile extends StatelessWidget {
                 : busy
                     ? Colors.blue
                     : Colors.green;
+    final seen = lastSeen;
     final subtitle = error != null
-        ? 'offline'
+        ? seen != null
+            ? 'offline · seen ${when(BigInt.from(seen.millisecondsSinceEpoch))}'
+            : 'offline'
         : !online
             ? 'checking…'
             : status.paused
                 ? 'paused'
                 : busy
                     ? '${status.runningJobs} running, ${status.queuedJobs} queued'
-                    : 'online, idle';
+                    : status.pendingRestart == true
+                        ? 'online · restart pending'
+                        : 'online, idle';
     return ListTile(
       selected: selected,
       dense: true,
@@ -296,6 +306,23 @@ class MachineView extends StatelessWidget {
                   ].join(' · '),
                   style: text.bodySmall,
                 ),
+                if (status != null && status.cpuPercent != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Wrap(
+                      spacing: 16,
+                      children: [
+                        _Stat('CPU', '${status.cpuPercent}%'),
+                        if (status.memoryTotal != null)
+                          _Stat('Memory', '${bytes(status.memoryUsed!)} of ${bytes(status.memoryTotal!)}'),
+                        if (status.diskTotal != null)
+                          _Stat('Disk', '${bytes(status.diskFree!)} free of ${bytes(status.diskTotal!)}'),
+                        if (status.uptimeSecs != null) _Stat('Up', uptime(status.uptimeSecs!)),
+                        if (status.pendingRestart == true)
+                          const _Stat('Updates', 'waiting for a restart'),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -322,6 +349,24 @@ class MachineView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Text.rich(
+      TextSpan(children: [
+        TextSpan(text: '$label ', style: text.bodySmall),
+        TextSpan(text: value, style: text.bodyMedium),
+      ]),
     );
   }
 }
