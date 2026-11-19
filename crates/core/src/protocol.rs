@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::Os;
 use crate::error::{Error, Result};
+use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
 use crate::identity::{DeviceId, DeviceKey};
 use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::permissions::{Permission, Permissions};
@@ -115,6 +116,20 @@ pub enum Command {
     ListSecrets,
     /// Delete one of this controller's secrets. Answered with [`Response::Done`].
     RemoveSecret(SecretName),
+    /// What this controller has left on the machine. Answered with
+    /// [`Response::Footprint`].
+    Footprint,
+    /// Remove part or all of this controller's footprint. Answered with
+    /// [`Response::Removed`].
+    RemoveFootprint(FootprintItem),
+    /// Unpair this controller, after removing its footprint with `wipe`. Answered with
+    /// [`Response::Removed`]; later requests are refused.
+    Unpair { wipe: bool },
+    /// Devices paired with the machine. Answered with [`Response::Devices`].
+    ListDevices,
+    /// Unpair another device (a lost laptop), removing its footprint with `wipe`.
+    /// Answered with [`Response::Removed`].
+    RevokeDevice { id: DeviceId, wipe: bool },
 }
 
 impl Command {
@@ -135,9 +150,25 @@ impl Command {
             | Command::SetSecret { .. }
             | Command::ListSecrets
             | Command::RemoveSecret(_) => Some(Permission::RunJobs),
+            Command::Footprint | Command::RemoveFootprint(_) => Some(Permission::Footprint),
+            // Leaving is always allowed.
+            Command::Unpair { .. } => None,
+            Command::ListDevices | Command::RevokeDevice { .. } => Some(Permission::ManageMachine),
             Command::OpenTerminal { .. } | Command::ListTerminals | Command::CloseTerminal(_) => {
                 Some(Permission::Terminal)
             }
+        }
+    }
+
+    /// The project copy this command works on, if any.
+    pub fn workspace(&self) -> Option<&WorkspaceId> {
+        match self {
+            Command::SyncPlan { workspace, .. }
+            | Command::SyncPut { workspace, .. }
+            | Command::SyncApply { workspace }
+            | Command::ListFiles { workspace, .. }
+            | Command::ReadFile { workspace, .. } => Some(workspace),
+            _ => None,
         }
     }
 
@@ -163,6 +194,11 @@ impl Command {
             Command::SetSecret { .. } => "set_secret",
             Command::ListSecrets => "list_secrets",
             Command::RemoveSecret(_) => "remove_secret",
+            Command::Footprint => "footprint",
+            Command::RemoveFootprint(_) => "remove_footprint",
+            Command::Unpair { .. } => "unpair",
+            Command::ListDevices => "list_devices",
+            Command::RevokeDevice { .. } => "revoke_device",
         }
     }
 
@@ -173,7 +209,12 @@ impl Command {
             | Command::Info
             | Command::ListJobs
             | Command::ListTerminals
-            | Command::ListSecrets => None,
+            | Command::ListSecrets
+            | Command::Footprint
+            | Command::ListDevices => None,
+            Command::RemoveFootprint(item) => Some(format!("{item:?}")),
+            Command::Unpair { wipe } => Some(format!("wipe: {wipe}")),
+            Command::RevokeDevice { id, wipe } => Some(format!("{id} wipe: {wipe}")),
             Command::SetSecret { name, .. } | Command::RemoveSecret(name) => Some(name.to_string()),
             Command::OpenTerminal { session, .. } => session.as_ref().map(ToString::to_string),
             Command::CloseTerminal(id) => Some(id.to_string()),
@@ -381,6 +422,9 @@ pub enum Response {
     FileData(Vec<u8>),
     Secret(SecretInfo),
     Secrets(Vec<SecretInfo>),
+    Footprint(Footprint),
+    Removed(Removed),
+    Devices(Vec<DeviceInfo>),
 }
 
 /// Description of a machine, as seen by one controller.
