@@ -1229,6 +1229,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
   int dco_decode_box_autoadd_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -1250,6 +1256,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_u_64(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_8(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -1409,14 +1421,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MachineStatus dco_decode_machine_status(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return MachineStatus(
       name: dco_decode_String(arr[0]),
       agentVersion: dco_decode_String(arr[1]),
       paused: dco_decode_bool(arr[2]),
       runningJobs: dco_decode_u_32(arr[3]),
       queuedJobs: dco_decode_u_32(arr[4]),
+      cpuPercent: dco_decode_opt_box_autoadd_u_8(arr[5]),
+      memoryUsed: dco_decode_opt_box_autoadd_u_64(arr[6]),
+      memoryTotal: dco_decode_opt_box_autoadd_u_64(arr[7]),
+      diskFree: dco_decode_opt_box_autoadd_u_64(arr[8]),
+      diskTotal: dco_decode_opt_box_autoadd_u_64(arr[9]),
+      uptimeSecs: dco_decode_opt_box_autoadd_u_64(arr[10]),
+      pendingRestart: dco_decode_opt_box_autoadd_bool(arr[11]),
     );
   }
 
@@ -1424,6 +1443,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_bool(raw);
   }
 
   @protected
@@ -1442,6 +1467,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_8(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_8(raw);
   }
 
   @protected
@@ -1669,6 +1700,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_bool(deserializer));
+  }
+
+  @protected
   int sse_decode_box_autoadd_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_i_32(deserializer));
@@ -1690,6 +1727,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_u_64(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_8(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_8(deserializer));
   }
 
   @protected
@@ -1918,12 +1961,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_paused = sse_decode_bool(deserializer);
     var var_runningJobs = sse_decode_u_32(deserializer);
     var var_queuedJobs = sse_decode_u_32(deserializer);
+    var var_cpuPercent = sse_decode_opt_box_autoadd_u_8(deserializer);
+    var var_memoryUsed = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_memoryTotal = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_diskFree = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_diskTotal = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_uptimeSecs = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_pendingRestart = sse_decode_opt_box_autoadd_bool(deserializer);
     return MachineStatus(
       name: var_name,
       agentVersion: var_agentVersion,
       paused: var_paused,
       runningJobs: var_runningJobs,
       queuedJobs: var_queuedJobs,
+      cpuPercent: var_cpuPercent,
+      memoryUsed: var_memoryUsed,
+      memoryTotal: var_memoryTotal,
+      diskFree: var_diskFree,
+      diskTotal: var_diskTotal,
+      uptimeSecs: var_uptimeSecs,
+      pendingRestart: var_pendingRestart,
     );
   }
 
@@ -1933,6 +1990,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_bool(deserializer));
     } else {
       return null;
     }
@@ -1966,6 +2034,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_u_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_8(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_8(deserializer));
     } else {
       return null;
     }
@@ -2233,6 +2312,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self, serializer);
@@ -2254,6 +2339,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_8(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_8(self, serializer);
   }
 
   @protected
@@ -2431,6 +2522,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.paused, serializer);
     sse_encode_u_32(self.runningJobs, serializer);
     sse_encode_u_32(self.queuedJobs, serializer);
+    sse_encode_opt_box_autoadd_u_8(self.cpuPercent, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.memoryUsed, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.memoryTotal, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.diskFree, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.diskTotal, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.uptimeSecs, serializer);
+    sse_encode_opt_box_autoadd_bool(self.pendingRestart, serializer);
   }
 
   @protected
@@ -2440,6 +2538,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_bool(self, serializer);
     }
   }
 
@@ -2470,6 +2578,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_u_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_8(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_8(self, serializer);
     }
   }
 

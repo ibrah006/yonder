@@ -7,17 +7,17 @@
 use std::future::Future;
 use std::sync::{Arc, LazyLock};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use flutter_rust_bridge::frb;
 use tokio::sync::Mutex;
 use yonder_core::controller::{
     Controller, ControllerConfig, TerminalEvent, TerminalReader, TerminalWriter,
 };
 use yonder_core::footprint::{DiskEncryption, FootprintItem};
-use yonder_core::jobs::{JobInfo, JobId, JobSpec};
+use yonder_core::jobs::{JobId, JobInfo, JobSpec};
 use yonder_core::net::NetConfig;
 use yonder_core::secrets::SecretName;
-use yonder_core::store::{PairedMachine, StateDir, default_controller_dir};
+use yonder_core::store::{default_controller_dir, PairedMachine, StateDir};
 use yonder_core::terminal::SessionId;
 use yonder_core::ticket::PairingTicket;
 use yonder_core::workspace::WorkspaceId;
@@ -65,6 +65,14 @@ pub struct MachineStatus {
     pub paused: bool,
     pub running_jobs: u32,
     pub queued_jobs: u32,
+    /// 0–100, when the machine measured it.
+    pub cpu_percent: Option<u8>,
+    pub memory_used: Option<u64>,
+    pub memory_total: Option<u64>,
+    pub disk_free: Option<u64>,
+    pub disk_total: Option<u64>,
+    pub uptime_secs: Option<u64>,
+    pub pending_restart: Option<bool>,
 }
 
 /// One job.
@@ -88,19 +96,34 @@ pub struct Job {
 /// Part of a job's log, or its end.
 #[derive(Debug, Clone)]
 pub enum LogEvent {
-    Output { offset: u64, data: Vec<u8> },
-    Finished { job: Job },
+    Output {
+        offset: u64,
+        data: Vec<u8>,
+    },
+    Finished {
+        job: Job,
+    },
     /// Git in the job borrowed a login from this device (`--borrow-git` jobs only).
-    LentGitLogin { host: String, lent: bool },
+    LentGitLogin {
+        host: String,
+        lent: bool,
+    },
 }
 
 /// Output of an open shell.
 #[derive(Debug, Clone)]
 pub enum ShellEvent {
-    Output { offset: u64, data: Vec<u8> },
-    Exited { code: Option<u32> },
+    Output {
+        offset: u64,
+        data: Vec<u8>,
+    },
+    Exited {
+        code: Option<u32>,
+    },
     /// The connection dropped; reopen with `from` set to the last offset received.
-    Disconnected { message: String },
+    Disconnected {
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -287,12 +310,20 @@ impl YonderApp {
             let info = c.info(&m).await?;
             let jobs = c.jobs(&m).await.unwrap_or_default();
             let count = |s: &str| jobs.iter().filter(|j| j.status.state.name() == s).count() as u32;
+            let s = info.stats;
             Ok(MachineStatus {
                 name: info.name,
                 agent_version: info.agent_version,
                 paused: info.paused,
                 running_jobs: count("running"),
                 queued_jobs: count("queued"),
+                cpu_percent: s.as_ref().map(|s| s.cpu_percent),
+                memory_used: s.as_ref().map(|s| s.memory_used),
+                memory_total: s.as_ref().map(|s| s.memory_total),
+                disk_free: s.as_ref().map(|s| s.disk_free),
+                disk_total: s.as_ref().map(|s| s.disk_total),
+                uptime_secs: s.as_ref().map(|s| s.uptime_secs),
+                pending_restart: s.and_then(|s| s.pending_restart),
             })
         })
         .await
@@ -393,9 +424,9 @@ impl YonderApp {
     ) -> Result<Shell> {
         let (c, m) = (self.controller.clone(), self.find(&machine_id)?);
         let session = match session {
-            Some(text) => {
-                Some(SessionId::parse(&text).ok_or_else(|| anyhow!("\"{text}\" isn't a shell id"))?)
-            }
+            Some(text) => Some(
+                SessionId::parse(&text).ok_or_else(|| anyhow!("\"{text}\" isn't a shell id"))?,
+            ),
             None => None,
         };
         on_runtime(async move {
@@ -420,7 +451,7 @@ impl YonderApp {
                     started_by: t.started_by,
                     created_at_ms: t.created_at_ms,
                     exited: t.exited,
-                    attached: t.attached as u32,
+                    attached: t.attached,
                 })
                 .collect())
         })
@@ -466,7 +497,7 @@ impl YonderApp {
                         started_by: t.started_by,
                         created_at_ms: t.created_at_ms,
                         exited: t.exited,
-                        attached: t.attached as u32,
+                        attached: t.attached,
                     })
                     .collect(),
                 cleanup_after_days: fp.cleanup_after_days,
@@ -545,7 +576,12 @@ impl YonderApp {
     }
 
     /// Cuts another device off a machine, removing what it left unless `keep`.
-    pub async fn revoke(&self, machine_id: String, device_id: String, keep: bool) -> Result<Removed> {
+    pub async fn revoke(
+        &self,
+        machine_id: String,
+        device_id: String,
+        keep: bool,
+    ) -> Result<Removed> {
         let (c, m) = (self.controller.clone(), self.find(&machine_id)?);
         let device = device_id
             .parse()
@@ -571,7 +607,9 @@ impl Shell {
                 .ok_or_else(|| anyhow!("the shell's output is already being read"))?;
             loop {
                 let event = match reader.next().await {
-                    Ok(TerminalEvent::Output { offset, data }) => ShellEvent::Output { offset, data },
+                    Ok(TerminalEvent::Output { offset, data }) => {
+                        ShellEvent::Output { offset, data }
+                    }
                     Ok(TerminalEvent::Exit(code)) => {
                         let _ = sink.add(ShellEvent::Exited { code });
                         return Ok(());
@@ -640,7 +678,10 @@ async fn git_fill(
         .spawn()
         .ok()?;
     let mut stdin = child.stdin.take()?;
-    stdin.write_all(request.to_git_input().as_bytes()).await.ok()?;
+    stdin
+        .write_all(request.to_git_input().as_bytes())
+        .await
+        .ok()?;
     drop(stdin);
     let output = child.wait_with_output().await.ok()?;
     if !output.status.success() {

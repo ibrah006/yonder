@@ -1792,12 +1792,26 @@ impl SseDecode for crate::api::yonder::MachineStatus {
         let mut var_paused = <bool>::sse_decode(deserializer);
         let mut var_runningJobs = <u32>::sse_decode(deserializer);
         let mut var_queuedJobs = <u32>::sse_decode(deserializer);
+        let mut var_cpuPercent = <Option<u8>>::sse_decode(deserializer);
+        let mut var_memoryUsed = <Option<u64>>::sse_decode(deserializer);
+        let mut var_memoryTotal = <Option<u64>>::sse_decode(deserializer);
+        let mut var_diskFree = <Option<u64>>::sse_decode(deserializer);
+        let mut var_diskTotal = <Option<u64>>::sse_decode(deserializer);
+        let mut var_uptimeSecs = <Option<u64>>::sse_decode(deserializer);
+        let mut var_pendingRestart = <Option<bool>>::sse_decode(deserializer);
         return crate::api::yonder::MachineStatus {
             name: var_name,
             agent_version: var_agentVersion,
             paused: var_paused,
             running_jobs: var_runningJobs,
             queued_jobs: var_queuedJobs,
+            cpu_percent: var_cpuPercent,
+            memory_used: var_memoryUsed,
+            memory_total: var_memoryTotal,
+            disk_free: var_diskFree,
+            disk_total: var_diskTotal,
+            uptime_secs: var_uptimeSecs,
+            pending_restart: var_pendingRestart,
         };
     }
 }
@@ -1807,6 +1821,17 @@ impl SseDecode for Option<String> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<bool> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<bool>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -1840,6 +1865,17 @@ impl SseDecode for Option<u64> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<u64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u8> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u8>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -2216,6 +2252,13 @@ impl flutter_rust_bridge::IntoDart for crate::api::yonder::MachineStatus {
             self.paused.into_into_dart().into_dart(),
             self.running_jobs.into_into_dart().into_dart(),
             self.queued_jobs.into_into_dart().into_dart(),
+            self.cpu_percent.into_into_dart().into_dart(),
+            self.memory_used.into_into_dart().into_dart(),
+            self.memory_total.into_into_dart().into_dart(),
+            self.disk_free.into_into_dart().into_dart(),
+            self.disk_total.into_into_dart().into_dart(),
+            self.uptime_secs.into_into_dart().into_dart(),
+            self.pending_restart.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2604,6 +2647,13 @@ impl SseEncode for crate::api::yonder::MachineStatus {
         <bool>::sse_encode(self.paused, serializer);
         <u32>::sse_encode(self.running_jobs, serializer);
         <u32>::sse_encode(self.queued_jobs, serializer);
+        <Option<u8>>::sse_encode(self.cpu_percent, serializer);
+        <Option<u64>>::sse_encode(self.memory_used, serializer);
+        <Option<u64>>::sse_encode(self.memory_total, serializer);
+        <Option<u64>>::sse_encode(self.disk_free, serializer);
+        <Option<u64>>::sse_encode(self.disk_total, serializer);
+        <Option<u64>>::sse_encode(self.uptime_secs, serializer);
+        <Option<bool>>::sse_encode(self.pending_restart, serializer);
     }
 }
 
@@ -2613,6 +2663,16 @@ impl SseEncode for Option<String> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <String>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<bool> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <bool>::sse_encode(value, serializer);
         }
     }
 }
@@ -2643,6 +2703,16 @@ impl SseEncode for Option<u64> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <u64>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u8> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u8>::sse_encode(value, serializer);
         }
     }
 }

@@ -327,12 +327,28 @@ class MachineStatus {
   final int runningJobs;
   final int queuedJobs;
 
+  /// 0–100, when the machine measured it.
+  final int? cpuPercent;
+  final BigInt? memoryUsed;
+  final BigInt? memoryTotal;
+  final BigInt? diskFree;
+  final BigInt? diskTotal;
+  final BigInt? uptimeSecs;
+  final bool? pendingRestart;
+
   const MachineStatus({
     required this.name,
     required this.agentVersion,
     required this.paused,
     required this.runningJobs,
     required this.queuedJobs,
+    this.cpuPercent,
+    this.memoryUsed,
+    this.memoryTotal,
+    this.diskFree,
+    this.diskTotal,
+    this.uptimeSecs,
+    this.pendingRestart,
   });
 
   @override
@@ -341,7 +357,14 @@ class MachineStatus {
       agentVersion.hashCode ^
       paused.hashCode ^
       runningJobs.hashCode ^
-      queuedJobs.hashCode;
+      queuedJobs.hashCode ^
+      cpuPercent.hashCode ^
+      memoryUsed.hashCode ^
+      memoryTotal.hashCode ^
+      diskFree.hashCode ^
+      diskTotal.hashCode ^
+      uptimeSecs.hashCode ^
+      pendingRestart.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -352,7 +375,14 @@ class MachineStatus {
           agentVersion == other.agentVersion &&
           paused == other.paused &&
           runningJobs == other.runningJobs &&
-          queuedJobs == other.queuedJobs;
+          queuedJobs == other.queuedJobs &&
+          cpuPercent == other.cpuPercent &&
+          memoryUsed == other.memoryUsed &&
+          memoryTotal == other.memoryTotal &&
+          diskFree == other.diskFree &&
+          diskTotal == other.diskTotal &&
+          uptimeSecs == other.uptimeSecs &&
+          pendingRestart == other.pendingRestart;
 }
 
 class ProjectCopy {
