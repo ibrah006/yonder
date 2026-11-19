@@ -44,6 +44,7 @@ pub struct BlobPart {
     pub offset: u64,
     /// The whole file's size.
     pub total: u64,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
