@@ -143,6 +143,9 @@ pub enum Command {
     /// as a dev server. Answered with [`Response::Forwarding`]; after that the stream
     /// carries the connection's bytes both ways until either side finishes.
     Forward { host: String, port: u16 },
+    /// Broadcast the Wake-on-LAN signal for another machine's network card on this
+    /// machine's networks. Answered with [`Response::Done`].
+    Wake { mac: String },
     /// Turn this controller's auto-cleanup on (project copies unused for `after_days`
     /// are removed) or off with `None`. Answered with [`Response::Done`].
     SetCleanup { after_days: Option<u32> },
@@ -167,6 +170,8 @@ impl Command {
             | Command::ListSecrets
             | Command::RemoveSecret(_)
             | Command::AnswerGitCredential { .. } => Some(Permission::RunJobs),
+            // Waking a machine only sends a broadcast; any paired device may ask.
+            Command::Wake { .. } => None,
             Command::Footprint | Command::RemoveFootprint(_) | Command::SetCleanup { .. } => {
                 Some(Permission::Footprint)
             }
@@ -223,6 +228,7 @@ impl Command {
             Command::AnswerGitCredential { .. } => "answer_git_credential",
             Command::SetCleanup { .. } => "set_cleanup",
             Command::Forward { .. } => "forward",
+            Command::Wake { .. } => "wake",
         }
     }
 
@@ -240,6 +246,7 @@ impl Command {
             Command::Unpair { wipe } => Some(format!("wipe: {wipe}")),
             Command::RevokeDevice { id, wipe } => Some(format!("{id} wipe: {wipe}")),
             Command::Forward { host, port } => Some(format!("{host}:{port}")),
+            Command::Wake { mac } => Some(mac.clone()),
             Command::SetCleanup { after_days } => Some(match after_days {
                 Some(days) => format!("after {days} days"),
                 None => "off".into(),
@@ -485,6 +492,8 @@ pub struct MachineInfo {
     pub paused: bool,
     /// CPU, memory, disk and so on, if the machine could measure them.
     pub stats: Option<MachineStats>,
+    /// Network card addresses, for waking it later (Wake-on-LAN).
+    pub macs: Vec<String>,
 }
 
 /// Why the agent refused or failed a request.
