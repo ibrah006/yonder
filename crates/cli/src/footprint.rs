@@ -3,7 +3,7 @@
 
 use anyhow::{Result, bail};
 use yonder_core::controller::Controller;
-use yonder_core::footprint::{Footprint, FootprintItem, Removed};
+use yonder_core::footprint::{DiskEncryption, Footprint, FootprintItem, Removed};
 use yonder_core::secrets::SecretName;
 use yonder_core::store::{PairedMachine, format_date, format_datetime_ms};
 use yonder_core::workspace::WorkspaceId;
@@ -42,6 +42,21 @@ fn print_footprint(machine: &PairedMachine, fp: &Footprint) {
         machine.name,
         format_date(fp.paired_at),
         fp.permissions
+    );
+    println!(
+        "  disk encryption: {}",
+        match fp.disk_encryption {
+            DiskEncryption::On => "on",
+            DiskEncryption::Off => "OFF (secrets and project copies sit unencrypted on its disk)",
+            DiskEncryption::Unknown => "unknown",
+        }
+    );
+    println!(
+        "  auto-cleanup: {}",
+        match fp.cleanup_after_days {
+            Some(days) => format!("project copies unused for {days} days are removed"),
+            None => format!("off (turn on: yonder cleanup {} --after 30d)", machine.name),
+        }
     );
     if fp.is_empty() {
         println!("  nothing of this device's is left here");
@@ -178,6 +193,62 @@ pub async fn clean(controller: &Controller, machine: &str, what: &[String]) -> R
     Ok(())
 }
 
+/// `yonder cleanup`: turn this device's auto-cleanup on or off, or show it.
+pub async fn cleanup(
+    controller: &Controller,
+    machine: &str,
+    after: Option<String>,
+    off: bool,
+) -> Result<()> {
+    let setting = match (after, off) {
+        (Some(_), true) => bail!("use --after or --off, not both"),
+        (Some(text), false) => Some(parse_days(&text)?),
+        (None, true) => None,
+        (None, false) => {
+            for machine in targets(controller, machine).await? {
+                match controller.footprint(&machine).await {
+                    Ok(fp) => match fp.cleanup_after_days {
+                        Some(days) => println!(
+                            "{}: project copies unused for {days} days are removed",
+                            machine.name
+                        ),
+                        None => println!("{}: auto-cleanup is off", machine.name),
+                    },
+                    Err(err) => println!("{}: couldn't ask ({err})", machine.name),
+                }
+            }
+            return Ok(());
+        }
+    };
+    for machine in targets(controller, machine).await? {
+        match controller.set_cleanup(&machine, setting).await {
+            Ok(()) => match setting {
+                Some(days) => println!(
+                    "{}: this device's project copies unused for {days} days will be removed (checked hourly)",
+                    machine.name
+                ),
+                None => println!("{}: auto-cleanup is off", machine.name),
+            },
+            Err(err) => println!("{}: {err}", machine.name),
+        }
+    }
+    Ok(())
+}
+
+/// `30d`, `2w` or a plain number of days.
+fn parse_days(text: &str) -> Result<u32> {
+    let text = text.trim();
+    let (number, per) = if let Some(n) = text.strip_suffix('w') {
+        (n, 7)
+    } else {
+        (text.strip_suffix('d').unwrap_or(text), 1)
+    };
+    match number.parse::<u32>() {
+        Ok(n) if n > 0 => Ok(n * per),
+        _ => bail!("\"{text}\" isn't a number of days; use e.g. 30d or 2w"),
+    }
+}
+
 pub async fn unpair(controller: &Controller, machine: &str, keep: bool) -> Result<()> {
     for machine in targets(controller, machine).await? {
         match controller.unpair(&machine, !keep).await {
@@ -255,6 +326,16 @@ pub async fn revoke(controller: &Controller, device: &str, on: &str, keep: bool)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn days_parse() {
+        assert_eq!(parse_days("30d").unwrap(), 30);
+        assert_eq!(parse_days("2w").unwrap(), 14);
+        assert_eq!(parse_days("7").unwrap(), 7);
+        for bad in ["0d", "", "x", "-1d", "3h"] {
+            assert!(parse_days(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn items_parse() {
