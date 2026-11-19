@@ -40,6 +40,7 @@ async fn start_agent(dir: &TempDir, max_parallel: usize) -> Agent {
                 max_parallel,
             }),
             shell: None,
+            screenshot: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )

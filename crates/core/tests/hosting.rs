@@ -32,6 +32,7 @@ async fn the_cli_goes_through_the_app_while_it_hosts() {
             name: Some("box".into()),
             jobs: None,
             shell: None,
+            screenshot: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )

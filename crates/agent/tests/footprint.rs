@@ -38,6 +38,7 @@ async fn start_agent(dir: &TempDir) -> Agent {
                 max_parallel: 2,
             }),
             shell: None,
+            screenshot: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )

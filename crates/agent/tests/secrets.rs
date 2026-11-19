@@ -53,6 +53,7 @@ async fn setup() -> Setup {
                 max_parallel: 2,
             }),
             shell: None,
+            screenshot: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )

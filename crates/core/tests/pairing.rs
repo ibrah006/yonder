@@ -33,6 +33,7 @@ async fn start_agent_in(dir: TempDir, approve: bool) -> TestAgent {
             name: Some("build-box".into()),
             jobs: None,
             shell: None,
+            screenshot: None,
         },
         approver_fn(move |_candidate: PairingCandidate| {
             counter.fetch_add(1, Ordering::SeqCst);
@@ -133,6 +134,7 @@ async fn controller_shows_matching_fingerprint_to_the_machine() {
             name: None,
             jobs: None,
             shell: None,
+            screenshot: None,
         },
         approver_fn(move |candidate: PairingCandidate| {
             *seen_in_approver.lock().unwrap() = Some(candidate.fingerprint);

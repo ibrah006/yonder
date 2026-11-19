@@ -46,6 +46,7 @@ async fn git_in_a_job_borrows_a_login_from_its_device() {
                 max_parallel: 2,
             }),
             shell: None,
+            screenshot: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )

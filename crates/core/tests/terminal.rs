@@ -30,6 +30,7 @@ async fn setup() -> Setup {
             name: Some("box".into()),
             jobs: None,
             shell: None,
+            screenshot: None,
         },
         approver_fn(|_: PairingCandidate| async { true }),
     )
