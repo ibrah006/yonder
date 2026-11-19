@@ -15,6 +15,7 @@ use tracing::{debug, info, warn};
 use crate::Os;
 use crate::audit::{AuditEntry, AuditLog};
 use crate::error::Result;
+use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
 use crate::jobs::manager::{JobManager, JobsConfig};
 use crate::jobs::{JobId, JobMeta, JobStore};
@@ -29,7 +30,7 @@ use crate::secrets::{SecretStore, UseError};
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
 use crate::terminal::{Session, ShellCommand, TerminalInput, TerminalManager};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
-use crate::workspace::Workspaces;
+use crate::workspace::{WorkspaceId, Workspaces};
 
 /// How long someone at the machine has to approve a pairing request.
 pub const APPROVAL_TIMEOUT: Duration = Duration::from_secs(120);
@@ -287,16 +288,28 @@ impl Agent {
 
     /// Removes a controller and drops its open connections. Returns whether it was paired.
     pub fn revoke(&self, id: &DeviceId) -> Result<bool> {
+        self.inner.revoke(id, true)
+    }
+
+    /// Stops accepting connections and closes open ones.
+    pub async fn shutdown(&self) {
+        self.inner.endpoint.close().await;
+    }
+}
+
+impl Inner {
+    /// Unpairs a controller; with `disconnect`, also closes its open connections.
+    fn revoke(&self, id: &DeviceId, disconnect: bool) -> Result<bool> {
         let removed = {
-            let _write = lock(&self.inner.state_write);
-            let mut state = self.inner.load_state()?;
+            let _write = lock(&self.state_write);
+            let mut state = self.load_state()?;
             let removed = state.remove_controller(id);
             if removed {
-                state.save(&self.inner.state_path)?;
+                state.save(&self.state_path)?;
             }
             removed
         };
-        if let Some(conns) = lock(&self.inner.connections).remove(id) {
+        if disconnect && let Some(conns) = lock(&self.connections).remove(id) {
             for conn in conns {
                 conn.close(close_code::REVOKED.into(), b"revoked");
             }
@@ -307,13 +320,123 @@ impl Agent {
         Ok(removed)
     }
 
-    /// Stops accepting connections and closes open ones.
-    pub async fn shutdown(&self) {
-        self.inner.endpoint.close().await;
+    /// What `controller` has left here.
+    fn footprint(&self, controller: &PairedController) -> Result<Footprint> {
+        let id = &controller.id;
+        let jobs: Vec<_> = self
+            .jobs
+            .as_ref()
+            .map(|j| j.list())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|j| &j.meta.controller == id)
+            .collect();
+        Ok(Footprint {
+            paired_at: controller.paired_at,
+            permissions: controller.permissions.clone(),
+            secrets: self.secrets.list(id)?,
+            workspaces: self.workspaces.owned_by(id),
+            unfinished_jobs: jobs
+                .iter()
+                .filter(|j| !j.status.state.is_finished())
+                .count(),
+            job_bytes: jobs.iter().map(|j| j.log_bytes).sum(),
+            jobs: jobs.len(),
+            shells: self
+                .terminals
+                .list()
+                .into_iter()
+                .filter(|t| &t.owner == id)
+                .collect(),
+        })
     }
-}
 
-impl Inner {
+    /// Whether an unfinished job (anyone's) runs inside `dir`.
+    fn job_running_in(&self, dir: &Path) -> bool {
+        self.jobs.as_ref().is_some_and(|jobs| {
+            jobs.list().iter().any(|job| {
+                !job.status.state.is_finished()
+                    && job
+                        .meta
+                        .spec
+                        .cwd
+                        .as_deref()
+                        .is_some_and(|cwd| Path::new(cwd).starts_with(dir))
+            })
+        })
+    }
+
+    /// Removes part or all of `id`'s footprint.
+    fn remove_footprint(&self, id: &DeviceId, item: &FootprintItem) -> Result<Removed> {
+        let mut removed = Removed::default();
+        let everything = matches!(item, FootprintItem::Everything);
+        if everything || matches!(item, FootprintItem::Shells) {
+            for shell in self.terminals.list().into_iter().filter(|t| &t.owner == id) {
+                if self.terminals.close(&shell.id).is_some() {
+                    removed.shells += 1;
+                }
+            }
+        }
+        if (everything || matches!(item, FootprintItem::Jobs))
+            && let Some(jobs) = &self.jobs
+        {
+            let mut cancelled = 0;
+            for job in jobs.list().into_iter().filter(|j| &j.meta.controller == id) {
+                if job.status.state.is_finished() {
+                    if jobs.store().remove(&job.meta.id).is_ok() {
+                        removed.jobs += 1;
+                        removed.bytes += job.log_bytes;
+                    }
+                } else {
+                    let _ = jobs.cancel(&job.meta.id);
+                    cancelled += 1;
+                }
+            }
+            if cancelled > 0 {
+                removed.kept.push(format!(
+                    "{cancelled} unfinished jobs were cancelled; remove them again once they stop"
+                ));
+            }
+        }
+        match item {
+            FootprintItem::Secret(name) => {
+                if self.secrets.remove(id, name)? {
+                    removed.secrets += 1;
+                }
+            }
+            FootprintItem::Everything => removed.secrets += self.secrets.remove_all(id)?,
+            _ => {}
+        }
+        let workspaces: Vec<WorkspaceId> = match item {
+            FootprintItem::Workspace(ws) => self
+                .workspaces
+                .owned_by(id)
+                .into_iter()
+                .filter(|w| &w.id == ws)
+                .map(|w| w.id)
+                .collect(),
+            FootprintItem::Everything => self
+                .workspaces
+                .owned_by(id)
+                .into_iter()
+                .map(|w| w.id)
+                .collect(),
+            _ => Vec::new(),
+        };
+        for ws in workspaces {
+            if self.job_running_in(&self.workspaces.dir(&ws)) {
+                removed
+                    .kept
+                    .push(format!("{ws}: a job is still running in it"));
+                continue;
+            }
+            removed.bytes += self.workspaces.remove(&ws)?;
+            removed.workspaces += 1;
+        }
+        info!(controller = %id, ?removed, "footprint removed");
+        Ok(removed)
+    }
+
     fn load_state(&self) -> Result<AgentState> {
         AgentState::load(&self.state_path)
     }
@@ -462,6 +585,15 @@ async fn decide(
 
     info!(controller = %controller.name, command = body.command.name(), "request");
     let internal = |e: crate::Error| RemoteError::new(ErrorCode::Internal, e.to_string());
+    // A project copy belongs to the device that first synced it.
+    if let Some(ws) = body.command.workspace()
+        && !inner.workspaces.claim(ws, peer).map_err(internal)?
+    {
+        return Err(RemoteError::new(
+            ErrorCode::NotFound,
+            format!("no project copy {ws} from this device here"),
+        ));
+    }
     Ok(match body.command {
         Command::Ping => Reply::One(Box::new(Response::Pong)),
         Command::Info => Reply::One(Box::new(Response::Info(MachineInfo {
@@ -568,18 +700,7 @@ async fn decide(
             Reply::One(Box::new(Response::Done))
         }
         Command::SyncApply { workspace } => {
-            let dir = inner.workspaces.dir(&workspace);
-            if let Ok(jobs) = inner.jobs()
-                && jobs.list().iter().any(|job| {
-                    !job.status.state.is_finished()
-                        && job
-                            .meta
-                            .spec
-                            .cwd
-                            .as_deref()
-                            .is_some_and(|cwd| Path::new(cwd).starts_with(&dir))
-                })
-            {
+            if inner.job_running_in(&inner.workspaces.dir(&workspace)) {
                 return Err(RemoteError::new(
                     ErrorCode::Busy,
                     "a job is still running in this workspace; wait for it or cancel it",
@@ -626,6 +747,74 @@ async fn decide(
         Command::ListSecrets => Reply::One(Box::new(Response::Secrets(
             inner.secrets.list(peer).map_err(internal)?,
         ))),
+        Command::Footprint => Reply::One(Box::new(Response::Footprint(
+            inner.footprint(&controller).map_err(internal)?,
+        ))),
+        Command::RemoveFootprint(item) => {
+            if let FootprintItem::Workspace(ws) = &item
+                && !inner.workspaces.owned_by(peer).iter().any(|w| &w.id == ws)
+            {
+                return Err(RemoteError::new(
+                    ErrorCode::NotFound,
+                    format!("no project copy {ws} from this device here"),
+                ));
+            }
+            Reply::One(Box::new(Response::Removed(
+                inner.remove_footprint(peer, &item).map_err(internal)?,
+            )))
+        }
+        Command::Unpair { wipe } => {
+            let removed = if wipe {
+                inner
+                    .remove_footprint(peer, &FootprintItem::Everything)
+                    .map_err(internal)?
+            } else {
+                Removed::default()
+            };
+            // This connection stays open long enough to answer; requests after this
+            // are refused.
+            inner.revoke(peer, false).map_err(internal)?;
+            Reply::One(Box::new(Response::Removed(removed)))
+        }
+        Command::ListDevices => {
+            let state = inner.load_state().map_err(internal)?;
+            let devices = state
+                .controllers
+                .iter()
+                .map(|c| DeviceInfo {
+                    id: c.id,
+                    name: c.name.clone(),
+                    permissions: c.permissions.clone(),
+                    paired_at: c.paired_at,
+                    you: &c.id == peer,
+                })
+                .collect();
+            Reply::One(Box::new(Response::Devices(devices)))
+        }
+        Command::RevokeDevice { id, wipe } => {
+            if &id == peer {
+                return Err(RemoteError::new(
+                    ErrorCode::BadRequest,
+                    "that's this device; use `yonder unpair` instead",
+                ));
+            }
+            if inner.paired_controller(&id).is_none() {
+                return Err(RemoteError::new(
+                    ErrorCode::NotFound,
+                    format!("no device {} is paired here", id.fmt_short()),
+                ));
+            }
+            // Unpair first, so the lost device can't add anything while it's wiped.
+            inner.revoke(&id, true).map_err(internal)?;
+            let removed = if wipe {
+                inner
+                    .remove_footprint(&id, &FootprintItem::Everything)
+                    .map_err(internal)?
+            } else {
+                Removed::default()
+            };
+            Reply::One(Box::new(Response::Removed(removed)))
+        }
         Command::RemoveSecret(name) => {
             if !inner.secrets.remove(peer, &name).map_err(internal)? {
                 return Err(RemoteError::new(
