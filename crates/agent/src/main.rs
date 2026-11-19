@@ -106,6 +106,9 @@ enum Cmd {
     /// Runs one job. Started by the agent; not for direct use.
     #[command(hide = true)]
     JobRun { job_dir: PathBuf },
+    /// Git's credential helper for jobs that borrow logins. Run by git; not for direct use.
+    #[command(hide = true)]
+    GitCredential { job_dir: PathBuf, operation: String },
     /// Starts a job runner or shell as the build user. Used by the service.
     #[command(hide = true)]
     BuildUser {
@@ -139,6 +142,17 @@ fn main() -> Result<()> {
         // The runner is a plain process: no async runtime, no networking.
         let state = yonder_core::jobs::runner::run(job_dir)?;
         std::process::exit(if state.is_finished() { 0 } else { 1 });
+    }
+    if let Cmd::GitCredential { job_dir, operation } = &args.command {
+        // Git reads the answer from stdout; notes go to stderr, into the job's log.
+        yonder_core::credentials::run_helper(
+            job_dir,
+            operation,
+            std::io::stdin().lock(),
+            std::io::stdout().lock(),
+            std::io::stderr(),
+        )?;
+        return Ok(());
     }
     if let Cmd::BuildUser { what } = &args.command {
         return as_build_user(&args, what);
@@ -283,7 +297,7 @@ async fn async_main(args: Args) -> Result<()> {
         Cmd::Resume => set_paused(&state, false),
         Cmd::Jobs => list_jobs(&state),
         Cmd::Audit { count } => show_audit(&state, count),
-        Cmd::JobRun { .. } | Cmd::BuildUser { .. } => {
+        Cmd::JobRun { .. } | Cmd::BuildUser { .. } | Cmd::GitCredential { .. } => {
             unreachable!("handled before the runtime starts")
         }
     }
