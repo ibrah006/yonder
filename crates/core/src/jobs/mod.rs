@@ -325,6 +325,13 @@ impl JobStore {
         remove_secret_files(&dir);
     }
 
+    /// Deletes a finished job's folder, log included.
+    pub fn remove(&self, id: &JobId) -> Result<()> {
+        self.scrub(id);
+        let dir = self.job_dir(id);
+        std::fs::remove_dir_all(&dir).map_err(|e| Error::io(&dir, e))
+    }
+
     /// Asks the job's runner to stop.
     pub fn request_cancel(&self, id: &JobId) -> Result<()> {
         let path = self.job_dir(id).join(CANCEL);
