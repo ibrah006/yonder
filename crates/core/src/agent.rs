@@ -30,6 +30,7 @@ use crate::protocol::{
     read_frame, read_message, write_frame, write_message,
 };
 use crate::secrets::{SecretStore, UseError};
+use crate::stats::StatsSampler;
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
 use crate::terminal::{Session, ShellCommand, TerminalInput, TerminalManager};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
@@ -159,6 +160,7 @@ struct Inner {
     terminals: Arc<TerminalManager>,
     workspaces: Arc<Workspaces>,
     secrets: SecretStore,
+    stats: Arc<StatsSampler>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -211,6 +213,7 @@ impl Agent {
                 config.state.sync_dir(),
             )),
             secrets: SecretStore::new(config.state.secrets_dir()),
+            stats: Arc::new(StatsSampler::default()),
         });
         tokio::spawn(accept_loop(inner.clone()));
         tokio::spawn(cleanup_loop(Arc::downgrade(&inner)));
@@ -670,13 +673,21 @@ async fn decide(
     }
     Ok(match body.command {
         Command::Ping => Reply::One(Box::new(Response::Pong)),
-        Command::Info => Reply::One(Box::new(Response::Info(MachineInfo {
-            name: inner.machine_name.clone(),
-            os: Os::current(),
-            agent_version: crate::VERSION.to_string(),
-            your_permissions: controller.permissions,
-            paused: inner.paused(),
-        }))),
+        Command::Info => {
+            let (sampler, dir) = (inner.stats.clone(), inner.workspaces.dir_root());
+            let stats = tokio::task::spawn_blocking(move || sampler.sample(&dir))
+                .await
+                .ok()
+                .flatten();
+            Reply::One(Box::new(Response::Info(MachineInfo {
+                name: inner.machine_name.clone(),
+                os: Os::current(),
+                agent_version: crate::VERSION.to_string(),
+                your_permissions: controller.permissions,
+                paused: inner.paused(),
+                stats,
+            })))
+        }
         Command::RunJob(spec) => {
             let jobs = inner.jobs()?;
             if inner.paused() {
