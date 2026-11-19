@@ -27,6 +27,55 @@ pub struct Footprint {
     pub unfinished_jobs: usize,
     pub job_bytes: u64,
     pub shells: Vec<TerminalInfo>,
+    /// This device's auto-cleanup: project copies unused this many days are removed.
+    pub cleanup_after_days: Option<u32>,
+    /// Whether the machine's system disk is encrypted (BitLocker, FileVault).
+    pub disk_encryption: DiskEncryption,
+}
+
+/// Whether the system disk is encrypted at rest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DiskEncryption {
+    On,
+    Off,
+    /// Couldn't tell (no BitLocker on this edition, Linux, or the check failed).
+    Unknown,
+}
+
+/// Checks the system disk: BitLocker on Windows, FileVault on macOS.
+pub fn disk_encryption() -> DiskEncryption {
+    let output = if cfg!(windows) {
+        std::process::Command::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "(Get-BitLockerVolume -MountPoint $env:SystemDrive).ProtectionStatus",
+            ])
+            .output()
+    } else if cfg!(target_os = "macos") {
+        std::process::Command::new("fdesetup")
+            .arg("status")
+            .output()
+    } else {
+        return DiskEncryption::Unknown;
+    };
+    match output {
+        Ok(out) if out.status.success() => parse_encryption(&String::from_utf8_lossy(&out.stdout)),
+        _ => DiskEncryption::Unknown,
+    }
+}
+
+/// Reads BitLocker's `On`/`Off` or FileVault's "FileVault is On."
+fn parse_encryption(text: &str) -> DiskEncryption {
+    let text = text.trim().trim_end_matches('.');
+    if text == "On" || text.ends_with(" is On") {
+        DiskEncryption::On
+    } else if text == "Off" || text.ends_with(" is Off") {
+        DiskEncryption::Off
+    } else {
+        DiskEncryption::Unknown
+    }
 }
 
 impl Footprint {
@@ -88,4 +137,19 @@ pub struct DeviceInfo {
     pub paired_at: u64,
     /// The device asking.
     pub you: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encryption_answers_parse() {
+        assert_eq!(parse_encryption("On\r\n"), DiskEncryption::On);
+        assert_eq!(parse_encryption("Off"), DiskEncryption::Off);
+        assert_eq!(parse_encryption("FileVault is On.\n"), DiskEncryption::On);
+        assert_eq!(parse_encryption("FileVault is Off."), DiskEncryption::Off);
+        assert_eq!(parse_encryption(""), DiskEncryption::Unknown);
+        assert_eq!(parse_encryption("Unknown"), DiskEncryption::Unknown);
+    }
 }
