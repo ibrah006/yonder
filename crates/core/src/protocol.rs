@@ -138,6 +138,9 @@ pub enum Command {
         request: String,
         credential: Option<GitCredential>,
     },
+    /// Turn this controller's auto-cleanup on (project copies unused for `after_days`
+    /// are removed) or off with `None`. Answered with [`Response::Done`].
+    SetCleanup { after_days: Option<u32> },
 }
 
 impl Command {
@@ -159,7 +162,9 @@ impl Command {
             | Command::ListSecrets
             | Command::RemoveSecret(_)
             | Command::AnswerGitCredential { .. } => Some(Permission::RunJobs),
-            Command::Footprint | Command::RemoveFootprint(_) => Some(Permission::Footprint),
+            Command::Footprint | Command::RemoveFootprint(_) | Command::SetCleanup { .. } => {
+                Some(Permission::Footprint)
+            }
             // Leaving is always allowed.
             Command::Unpair { .. } => None,
             Command::ListDevices | Command::RevokeDevice { .. } => Some(Permission::ManageMachine),
@@ -209,6 +214,7 @@ impl Command {
             Command::ListDevices => "list_devices",
             Command::RevokeDevice { .. } => "revoke_device",
             Command::AnswerGitCredential { .. } => "answer_git_credential",
+            Command::SetCleanup { .. } => "set_cleanup",
         }
     }
 
@@ -225,6 +231,10 @@ impl Command {
             Command::RemoveFootprint(item) => Some(format!("{item:?}")),
             Command::Unpair { wipe } => Some(format!("wipe: {wipe}")),
             Command::RevokeDevice { id, wipe } => Some(format!("{id} wipe: {wipe}")),
+            Command::SetCleanup { after_days } => Some(match after_days {
+                Some(days) => format!("after {days} days"),
+                None => "off".into(),
+            }),
             Command::AnswerGitCredential {
                 job,
                 request,
