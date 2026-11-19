@@ -478,6 +478,13 @@ impl YonderApp {
         .await
     }
 
+    /// A picture of the machine's screen, as PNG. Needs someone signed in there and the
+    /// admin permission.
+    pub async fn screenshot(&self, machine_id: String) -> Result<Vec<u8>> {
+        let (c, m) = (self.controller.clone(), self.find(&machine_id)?);
+        on_runtime(async move { Ok(c.screenshot(&m).await?) }).await
+    }
+
     pub async fn shells(&self, machine_id: String) -> Result<Vec<ShellInfo>> {
         let (c, m) = (self.controller.clone(), self.find(&machine_id)?);
         on_runtime(async move {

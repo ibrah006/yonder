@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1697930611;
+  int get rustContentHash => -1928892523;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -172,6 +172,11 @@ abstract class RustLibApi extends BaseApi {
     required String command,
     String? cwd,
     String? label,
+  });
+
+  Future<Uint8List> crateApiYonderYonderAppScreenshot({
+    required YonderApp that,
+    required String machineId,
   });
 
   Future<void> crateApiYonderYonderAppSetCleanup({
@@ -992,6 +997,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<Uint8List> crateApiYonderYonderAppScreenshot({
+    required YonderApp that,
+    required String machineId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 22,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppScreenshotConstMeta,
+        argValues: [that, machineId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppScreenshotConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_screenshot",
+        argNames: ["that", "machineId"],
+      );
+
+  @override
   Future<void> crateApiYonderYonderAppSetCleanup({
     required YonderApp that,
     required String machineId,
@@ -1010,7 +1053,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 23,
             port: port_,
           );
         },
@@ -1048,7 +1091,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 24,
             port: port_,
           );
         },
@@ -1086,7 +1129,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1126,7 +1169,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 26,
             port: port_,
           );
         },
@@ -1156,7 +1199,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 27,
             port: port_,
           );
         },
@@ -1180,7 +1223,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_recipe_info,
@@ -2986,6 +3029,13 @@ class YonderAppImpl extends RustOpaque implements YonderApp {
     cwd: cwd,
     label: label,
   );
+
+  /// A picture of the machine's screen, as PNG. Needs someone signed in there and the
+  /// admin permission.
+  Future<Uint8List> screenshot({required String machineId}) => RustLib
+      .instance
+      .api
+      .crateApiYonderYonderAppScreenshot(that: this, machineId: machineId);
 
   /// Turns auto-cleanup on (`Some(days)`) or off.
   Future<void> setCleanup({required String machineId, int? afterDays}) =>

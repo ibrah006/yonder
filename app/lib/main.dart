@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -325,6 +326,15 @@ class MachineView extends StatelessWidget {
                         label: const Text('Prepare…'),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => _ScreenshotDialog(app: app, machine: machine),
+                      ),
+                      icon: const Icon(Icons.screenshot_monitor_outlined, size: 18),
+                      label: const Text('Screenshot'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -398,6 +408,37 @@ class _Stat extends StatelessWidget {
         TextSpan(text: '$label ', style: text.bodySmall),
         TextSpan(text: value, style: text.bodyMedium),
       ]),
+    );
+  }
+}
+
+/// A picture of the machine's screen, taken when opened.
+class _ScreenshotDialog extends StatelessWidget {
+  const _ScreenshotDialog({required this.app, required this.machine});
+
+  final YonderApp app;
+  final Machine machine;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${machine.name}\'s screen'),
+      content: SizedBox(
+        width: 960,
+        height: 600,
+        child: FutureBuilder<Uint8List>(
+          future: app.screenshot(machineId: machine.id).then(Uint8List.fromList),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: SelectableText(errorText(snapshot.error!)));
+            }
+            final png = snapshot.data;
+            if (png == null) return const Center(child: CircularProgressIndicator());
+            return InteractiveViewer(maxScale: 4, child: Image.memory(png, fit: BoxFit.contain));
+          },
+        ),
+      ),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
     );
   }
 }

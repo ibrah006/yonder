@@ -101,6 +101,10 @@ abstract class YonderApp implements RustOpaqueInterface {
     String? label,
   });
 
+  /// A picture of the machine's screen, as PNG. Needs someone signed in there and the
+  /// admin permission.
+  Future<Uint8List> screenshot({required String machineId});
+
   /// Turns auto-cleanup on (`Some(days)`) or off.
   Future<void> setCleanup({required String machineId, int? afterDays});
 
