@@ -49,6 +49,7 @@ async fn setup() -> Setup {
             name: Some("build-box".into()),
             jobs: Some(JobsConfig {
                 runner: RunnerCommand::agent_binary(AGENT_BIN),
+                admin_runner: None,
                 max_parallel: 2,
             }),
             shell: None,
@@ -222,4 +223,22 @@ async fn env_values_stay_out_of_job_lists() {
     assert_eq!(job.meta.spec.env, vec![("PLAIN".into(), String::new())]);
     let listed = s.controller.jobs(&s.machine).await.unwrap();
     assert!(!format!("{listed:?}").contains("visible-before"));
+}
+
+#[tokio::test]
+async fn machines_without_an_admin_runner_refuse_admin_jobs() {
+    let s = setup().await;
+    let state_dir = StateDir::new(s.agent_dir.path());
+    let mut state = yonder_core::store::AgentState::load(&state_dir.agent_file()).unwrap();
+    state.controllers[0]
+        .permissions
+        .insert(yonder_core::permissions::Permission::Admin);
+    state.save(&state_dir.agent_file()).unwrap();
+    let mut spec = JobSpec::shell("echo hi");
+    spec.admin = true;
+    let err = s.controller.run(&s.machine, spec).await.unwrap_err();
+    assert!(
+        matches!(err, Error::Remote(ref e) if e.code == ErrorCode::Unsupported),
+        "{err}"
+    );
 }

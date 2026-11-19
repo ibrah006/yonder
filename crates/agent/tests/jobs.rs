@@ -35,6 +35,8 @@ async fn start_agent(dir: &TempDir, max_parallel: usize) -> Agent {
             name: Some("build-box".into()),
             jobs: Some(JobsConfig {
                 runner: RunnerCommand::agent_binary(AGENT_BIN),
+                // Tests stand in for the administrator runner with the same one.
+                admin_runner: Some(RunnerCommand::agent_binary(AGENT_BIN)),
                 max_parallel,
             }),
             shell: None,
@@ -353,4 +355,33 @@ async fn audit_log_records_who_ran_what() {
         !raw.contains("do-not-log-me"),
         "env values never reach the audit log"
     );
+}
+
+#[tokio::test]
+async fn admin_jobs_need_the_admin_permission() {
+    let s = setup().await;
+    let mut spec = JobSpec::shell("echo as-admin");
+    spec.admin = true;
+
+    // New devices don't get it.
+    let err = s
+        .controller
+        .run(&s.machine, spec.clone())
+        .await
+        .unwrap_err();
+    let message = err.to_string();
+    assert_eq!(remote_code(err), ErrorCode::PermissionDenied);
+    assert!(message.contains("yonder-agent allow"), "{message}");
+
+    // The owner grants it on the machine.
+    let state_dir = StateDir::new(s.agent_dir.path());
+    let mut state = AgentState::load(&state_dir.agent_file()).unwrap();
+    state.controllers[0].permissions.insert(Permission::Admin);
+    state.save(&state_dir.agent_file()).unwrap();
+
+    let job = s.controller.run(&s.machine, spec).await.unwrap();
+    let (out, job) = follow(&s, &job.meta.id).await;
+    assert_eq!(job.status.state, JobState::Succeeded, "{out}");
+    assert!(out.contains("as-admin"));
+    assert!(job.meta.spec.summary().contains("[as administrator]"));
 }

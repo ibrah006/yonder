@@ -42,6 +42,7 @@ async fn git_in_a_job_borrows_a_login_from_its_device() {
             name: Some("build-box".into()),
             jobs: Some(JobsConfig {
                 runner: RunnerCommand::agent_binary(AGENT_BIN),
+                admin_runner: None,
                 max_parallel: 2,
             }),
             shell: None,

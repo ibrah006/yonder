@@ -34,6 +34,7 @@ async fn start_agent(dir: &TempDir) -> Agent {
             name: Some("build-box".into()),
             jobs: Some(JobsConfig {
                 runner: RunnerCommand::agent_binary(AGENT_BIN),
+                admin_runner: None,
                 max_parallel: 2,
             }),
             shell: None,
