@@ -643,6 +643,21 @@ impl Controller {
         }
     }
 
+    /// Turns this device's auto-cleanup on the machine on (`Some(days)`) or off.
+    pub async fn set_cleanup(
+        &self,
+        machine: &PairedMachine,
+        after_days: Option<u32>,
+    ) -> Result<()> {
+        match self
+            .request(machine, Command::SetCleanup { after_days })
+            .await?
+        {
+            Response::Done => Ok(()),
+            other => Err(unexpected("done", &other)),
+        }
+    }
+
     /// What this device has left on the machine.
     pub async fn footprint(&self, machine: &PairedMachine) -> Result<Footprint> {
         match self.request(machine, Command::Footprint).await? {
