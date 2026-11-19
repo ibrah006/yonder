@@ -110,6 +110,7 @@ pub enum Command {
     /// [`Response::Secret`]. The value is never logged.
     SetSecret {
         name: SecretName,
+        #[serde(with = "serde_bytes")]
         value: Vec<u8>,
         expires_at_ms: Option<u64>,
         note: Option<String>,
@@ -323,7 +324,7 @@ impl SignedRequest {
     }
 
     pub(crate) fn sign(key: &DeviceKey, body: &RequestBody) -> Self {
-        let body = postcard::to_stdvec(body).expect("request is always serializable");
+        let body = encode(body);
         let signature = key.sign(&signed_bytes(&body));
         SignedRequest { body, signature }
     }
@@ -339,7 +340,7 @@ impl SignedRequest {
     ) -> std::result::Result<RequestBody, RemoteError> {
         peer.verify(&signed_bytes(&self.body), &self.signature)
             .map_err(|_| RemoteError::new(ErrorCode::BadSignature, "signature check failed"))?;
-        let body: RequestBody = postcard::from_bytes(&self.body)
+        let body: RequestBody = decode(&self.body)
             .map_err(|e| RemoteError::new(ErrorCode::BadRequest, e.to_string()))?;
         if &body.controller != peer {
             return Err(RemoteError::new(
@@ -447,6 +448,7 @@ pub enum Response {
     /// Part of a job's output, starting at byte `offset`.
     LogChunk {
         offset: u64,
+        #[serde(with = "serde_bytes")]
         data: Vec<u8>,
     },
     /// End of a log stream, with the job's state at that moment.
@@ -457,6 +459,7 @@ pub enum Response {
     /// Terminal output starting at byte `offset` of the session.
     TerminalOutput {
         offset: u64,
+        #[serde(with = "serde_bytes")]
         data: Vec<u8>,
     },
     /// The shell exited; the stream ends.
@@ -474,7 +477,7 @@ pub enum Response {
         path: String,
     },
     Files(Vec<FileEntry>),
-    FileData(Vec<u8>),
+    FileData(#[serde(with = "serde_bytes")] Vec<u8>),
     Secret(SecretInfo),
     Secrets(Vec<SecretInfo>),
     Footprint(Footprint),
@@ -498,8 +501,10 @@ pub struct MachineInfo {
     /// The owner paused new jobs on this machine.
     pub paused: bool,
     /// CPU, memory, disk and so on, if the machine could measure them.
+    #[serde(default)]
     pub stats: Option<MachineStats>,
     /// Network card addresses, for waking it later (Wake-on-LAN).
+    #[serde(default)]
     pub macs: Vec<String>,
 }
 
@@ -541,7 +546,10 @@ impl RemoteError {
 impl fmt::Display for RemoteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // An older agent can't read a command it doesn't know; say that plainly.
-        if self.code == ErrorCode::BadRequest && self.message.contains("Deserialization") {
+        if self.code == ErrorCode::BadRequest
+            && (self.message.contains("unknown variant")
+                || self.message.contains("Deserialization"))
+        {
             return write!(
                 f,
                 "the machine's agent is older than this yonder and doesn't know this command; \
@@ -610,12 +618,24 @@ impl fmt::Display for PairRejection {
 // Every message is a 4-byte little-endian length followed by the postcard bytes, so one
 // stream can carry several messages (a log stream) as well as just one.
 
+/// Messages are MessagePack with field names, so the two sides can be different
+/// versions: fields one side doesn't know are skipped, and fields it doesn't send take
+/// their defaults (new fields get `#[serde(default)]`). Only a command or answer one
+/// side has never heard of fails.
+fn encode<T: Serialize + ?Sized>(message: &T) -> Vec<u8> {
+    rmp_serde::to_vec_named(message).expect("messages are always serializable")
+}
+
+fn decode<T: DeserializeOwned>(bytes: &[u8]) -> std::result::Result<T, rmp_serde::decode::Error> {
+    rmp_serde::from_slice(bytes)
+}
+
 /// Writes one message without finishing the stream.
 pub async fn write_frame<T: Serialize>(
     send: &mut (impl AsyncWrite + Unpin + ?Sized),
     message: &T,
 ) -> Result<()> {
-    let bytes = postcard::to_stdvec(message).expect("messages are always serializable");
+    let bytes = encode(message);
     if bytes.len() > MAX_MESSAGE_BYTES {
         return Err(Error::Protocol("message too large".into()));
     }
@@ -648,9 +668,7 @@ pub async fn read_frame<T: DeserializeOwned>(
     }
     let mut bytes = vec![0u8; len];
     recv.read_exact(&mut bytes).await.map_err(Error::network)?;
-    postcard::from_bytes(&bytes)
-        .map(Some)
-        .map_err(Error::protocol)
+    decode(&bytes).map(Some).map_err(Error::protocol)
 }
 
 /// Writes one message and finishes the stream.
@@ -675,6 +693,68 @@ pub async fn read_message<T: DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn older_and_newer_peers_understand_each_other() {
+        // What an older agent sends: MachineInfo before `stats` and `macs` existed.
+        #[derive(Serialize)]
+        struct OldInfo {
+            name: String,
+            os: Os,
+            agent_version: String,
+            your_permissions: Permissions,
+            paused: bool,
+        }
+        #[derive(Serialize)]
+        enum OldResponse {
+            Info(OldInfo),
+        }
+        let old = encode(&OldResponse::Info(OldInfo {
+            name: "box".into(),
+            os: Os::Windows,
+            agent_version: "0.1.0".into(),
+            your_permissions: Permissions::for_new_controller(),
+            paused: false,
+        }));
+        match decode::<Response>(&old).unwrap() {
+            Response::Info(info) => {
+                assert_eq!(info.name, "box");
+                assert!(info.stats.is_none() && info.macs.is_empty());
+            }
+            other => panic!("{other:?}"),
+        }
+
+        // What a newer agent sends: a field this version doesn't know is skipped.
+        #[derive(Serialize)]
+        struct NewInfo {
+            name: String,
+            os: Os,
+            agent_version: String,
+            your_permissions: Permissions,
+            paused: bool,
+            something_new: Vec<u32>,
+        }
+        #[derive(Serialize)]
+        enum NewResponse {
+            Info(NewInfo),
+        }
+        let new = encode(&NewResponse::Info(NewInfo {
+            name: "box".into(),
+            os: Os::Windows,
+            agent_version: "9.0.0".into(),
+            your_permissions: Permissions::for_new_controller(),
+            paused: true,
+            something_new: vec![1, 2, 3],
+        }));
+        assert!(matches!(decode::<Response>(&new).unwrap(), Response::Info(i) if i.paused));
+    }
+
+    #[test]
+    fn bulk_data_stays_compact() {
+        let data = vec![0xEEu8; 10_000];
+        let bytes = encode(&Response::FileData(data));
+        assert!(bytes.len() < 10_100, "{} bytes", bytes.len());
+    }
 
     fn setup() -> (DeviceKey, DeviceId) {
         (DeviceKey::generate(), DeviceKey::generate().id())
