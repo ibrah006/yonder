@@ -186,3 +186,65 @@ async fn terminal_needs_its_permission() {
         .unwrap_err();
     assert!(matches!(err, Error::Remote(e) if e.code == ErrorCode::PermissionDenied));
 }
+
+#[tokio::test]
+async fn a_port_on_the_machine_is_reachable_through_a_forward() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let s = setup().await;
+    // A tiny server on the machine's localhost that shouts back what it gets.
+    let server = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = server.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        let (mut socket, _) = server.accept().await.unwrap();
+        let mut buf = vec![0u8; 64];
+        let n = socket.read(&mut buf).await.unwrap();
+        socket
+            .write_all(&buf[..n].to_ascii_uppercase())
+            .await
+            .unwrap();
+    });
+
+    let (mut send, mut recv) = s
+        .controller
+        .forward(&s.machine, "127.0.0.1", port)
+        .await
+        .unwrap();
+    send.write_all(b"hello through yonder").await.unwrap();
+    send.flush().await.unwrap();
+    let mut answer = vec![0u8; 20];
+    tokio::time::timeout(Duration::from_secs(10), recv.read_exact(&mut answer))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(answer, b"HELLO THROUGH YONDER");
+
+    // Nothing listening: a clear refusal, not a hang.
+    let closed = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let free = closed.local_addr().unwrap().port();
+    drop(closed);
+    let err = s
+        .controller
+        .forward(&s.machine, "127.0.0.1", free)
+        .await
+        .err()
+        .unwrap();
+    assert!(
+        matches!(err, Error::Remote(ref e) if e.code == ErrorCode::NotFound),
+        "{err}"
+    );
+
+    // It needs the terminal permission.
+    let state_dir = StateDir::new(s.agent_dir.path());
+    let mut state = AgentState::load(&state_dir.agent_file()).unwrap();
+    state.controllers[0]
+        .permissions
+        .remove(Permission::Terminal);
+    state.save(&state_dir.agent_file()).unwrap();
+    let err = s
+        .controller
+        .forward(&s.machine, "127.0.0.1", port)
+        .await
+        .err()
+        .unwrap();
+    assert!(matches!(err, Error::Remote(ref e) if e.code == ErrorCode::PermissionDenied));
+}
