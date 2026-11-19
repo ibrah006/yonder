@@ -525,6 +525,33 @@ impl Controller {
         }
     }
 
+    /// A picture of the machine's screen, as PNG.
+    pub async fn screenshot(&self, machine: &PairedMachine) -> Result<Vec<u8>> {
+        let signed = SignedRequest::new(&self.key, machine.id, Command::Screenshot);
+        let result = tokio::time::timeout(Duration::from_secs(60), async {
+            let (mut send, mut recv) = self.open_stream(machine).await?;
+            write_message(&mut send, &signed).await?;
+            let mut png = Vec::new();
+            loop {
+                match read_frame::<Response>(&mut recv).await? {
+                    Some(Response::FileData(chunk)) => png.extend_from_slice(&chunk),
+                    Some(Response::Done) => return Ok(png),
+                    Some(Response::Error(err)) => return Err(Error::Remote(err)),
+                    Some(other) => return Err(unexpected("a screenshot", &other)),
+                    None => return Err(Error::Protocol("the screenshot stopped halfway".into())),
+                }
+            }
+        })
+        .await
+        .map_err(|_| Error::Timeout("no screenshot from the machine"))
+        .and_then(|r| r);
+        match result {
+            Err(err @ Error::Remote(_)) => Err(err),
+            Err(err) => Err(self.failed(machine, err).await),
+            ok => ok,
+        }
+    }
+
     /// Asks `via` (awake, on the same network) to broadcast the wake signal for `mac`.
     pub async fn wake_via(&self, via: &PairedMachine, mac: &str) -> Result<()> {
         let command = Command::Wake {
