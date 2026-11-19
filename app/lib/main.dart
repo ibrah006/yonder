@@ -8,6 +8,7 @@ import 'ui/devices.dart';
 import 'ui/footprint.dart';
 import 'ui/format.dart';
 import 'ui/jobs.dart';
+import 'ui/notify.dart';
 import 'ui/pair.dart';
 import 'ui/terminal.dart';
 
@@ -52,6 +53,7 @@ class _HomeState extends State<Home> {
   final Map<String, DateTime> lastSeen = {};
   String? selected;
   Timer? refresh;
+  final notifier = JobNotifier();
 
   @override
   void initState() {
@@ -61,6 +63,7 @@ class _HomeState extends State<Home> {
 
   Future<void> _open() async {
     try {
+      await notifier.init();
       final opened = await YonderApp.open();
       setState(() => app = opened);
       _reload();
@@ -86,6 +89,7 @@ class _HomeState extends State<Home> {
       }
     });
     for (final m in machines) {
+      app.jobs(machineId: m.id).then((jobs) => notifier.check(m, jobs)).catchError((_) {});
       app.status(machineId: m.id).then((s) {
         if (!mounted) return;
         setState(() {
