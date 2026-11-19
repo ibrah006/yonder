@@ -21,6 +21,7 @@ use tokio::sync::watch;
 use tracing::{debug, info};
 
 use crate::error::{Error, Result};
+use crate::identity::DeviceId;
 use crate::protocol::now_ms;
 
 /// Identifies a terminal session. Same format as job ids: 16 lowercase hex characters.
@@ -40,6 +41,8 @@ pub struct TerminalInfo {
     pub created_at_ms: u64,
     /// Device that started it.
     pub started_by: String,
+    /// That device's id.
+    pub owner: DeviceId,
     pub cols: u16,
     pub rows: u16,
     /// Clients attached right now.
@@ -97,6 +100,7 @@ pub struct Session {
     id: SessionId,
     created_at_ms: u64,
     started_by: String,
+    owner: DeviceId,
     master: Mutex<Box<dyn MasterPty + Send>>,
     writer: Mutex<Box<dyn Write + Send>>,
     killer: Mutex<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
@@ -132,6 +136,7 @@ impl Session {
             id: self.id.clone(),
             created_at_ms: self.created_at_ms,
             started_by: self.started_by.clone(),
+            owner: self.owner,
             cols,
             rows,
             attached: *lock(&self.attached),
@@ -242,7 +247,13 @@ impl TerminalManager {
     }
 
     /// Starts a new shell.
-    pub fn open(&self, started_by: &str, cols: u16, rows: u16) -> Result<Arc<Session>> {
+    pub fn open(
+        &self,
+        owner: DeviceId,
+        started_by: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<Arc<Session>> {
         self.forget_old();
         if lock(&self.sessions).len() >= MAX_SESSIONS {
             return Err(Error::Protocol(format!(
@@ -279,6 +290,7 @@ impl TerminalManager {
             id: id.clone(),
             created_at_ms: now_ms(),
             started_by: started_by.to_string(),
+            owner,
             master: Mutex::new(pair.master),
             writer: Mutex::new(writer),
             killer: Mutex::new(killer),
@@ -426,7 +438,9 @@ mod tests {
     #[tokio::test]
     async fn shell_runs_commands_and_reports_exit() {
         let manager = TerminalManager::new();
-        let session = manager.open("test", 80, 24).unwrap();
+        let session = manager
+            .open(crate::identity::DeviceKey::generate().id(), "test", 80, 24)
+            .unwrap();
         session.write(b"echo yonder-$((40+2))\r").unwrap();
         wait_for(&session, "yonder-42").await;
 
@@ -446,9 +460,13 @@ mod tests {
     #[tokio::test]
     async fn sessions_are_listed_resized_and_closed() {
         let manager = TerminalManager::new();
-        let a = manager.open("mac", 80, 24).unwrap();
+        let a = manager
+            .open(crate::identity::DeviceKey::generate().id(), "mac", 80, 24)
+            .unwrap();
         std::thread::sleep(Duration::from_millis(2));
-        let b = manager.open("phone", 80, 24).unwrap();
+        let b = manager
+            .open(crate::identity::DeviceKey::generate().id(), "phone", 80, 24)
+            .unwrap();
         b.resize(120, 40);
         let list = manager.list();
         assert_eq!(list.len(), 2);
@@ -464,7 +482,9 @@ mod tests {
     #[test]
     fn attach_guard_counts_clients() {
         let manager = TerminalManager::new();
-        let s = manager.open("t", 80, 24).unwrap();
+        let s = manager
+            .open(crate::identity::DeviceKey::generate().id(), "t", 80, 24)
+            .unwrap();
         {
             let _one = s.attach();
             let _two = s.attach();
