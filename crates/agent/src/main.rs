@@ -781,6 +781,7 @@ mod tests {
             name: name.into(),
             permissions: Permissions::for_new_controller(),
             paired_at: 0,
+            cleanup_after_days: None,
         }
     }
 
