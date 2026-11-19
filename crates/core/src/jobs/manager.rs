@@ -41,6 +41,9 @@ impl RunnerCommand {
 #[derive(Debug, Clone)]
 pub struct JobsConfig {
     pub runner: RunnerCommand,
+    /// Runs jobs that ask for administrator rights (`admin`). `None`: this machine
+    /// doesn't offer them.
+    pub admin_runner: Option<RunnerCommand>,
     /// Jobs running at once; the rest wait in a queue.
     pub max_parallel: usize,
 }
@@ -81,6 +84,11 @@ impl JobManager {
 
     pub fn store(&self) -> &JobStore {
         &self.store
+    }
+
+    /// Whether jobs can ask for administrator rights here.
+    pub fn offers_admin(&self) -> bool {
+        self.config.admin_runner.is_some()
     }
 
     fn slots(&self) -> MutexGuard<'_, Slots> {
@@ -167,9 +175,14 @@ impl JobManager {
 
     fn launch(self: &Arc<Self>, id: JobId) {
         let job_dir = self.store.job_dir(&id);
-        let mut command = tokio::process::Command::new(&self.config.runner.program);
+        let admin = self.store.info(&id).is_ok_and(|j| j.meta.spec.admin);
+        let runner = match (&self.config.admin_runner, admin) {
+            (Some(admin_runner), true) => admin_runner,
+            _ => &self.config.runner,
+        };
+        let mut command = tokio::process::Command::new(&runner.program);
         command
-            .args(&self.config.runner.args)
+            .args(&runner.args)
             .arg(&job_dir)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
