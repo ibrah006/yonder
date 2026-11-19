@@ -688,6 +688,9 @@ async fn decide(
                 your_permissions: controller.permissions,
                 paused: inner.paused(),
                 stats,
+                macs: tokio::task::spawn_blocking(crate::wake::local_macs)
+                    .await
+                    .unwrap_or_default(),
             })))
         }
         Command::RunJob(spec) => {
@@ -782,6 +785,16 @@ async fn decide(
             }
         }
         Command::ListTerminals => Reply::One(Box::new(Response::Terminals(inner.terminals.list()))),
+        Command::Wake { mac } => {
+            let mac = crate::wake::parse_mac(&mac).ok_or_else(|| {
+                RemoteError::new(ErrorCode::BadRequest, "not a network card address")
+            })?;
+            tokio::task::spawn_blocking(move || crate::wake::send(mac))
+                .await
+                .map_err(|e| RemoteError::new(ErrorCode::Internal, e.to_string()))?
+                .map_err(internal)?;
+            Reply::One(Box::new(Response::Done))
+        }
         Command::Forward { host, port } => {
             if host.is_empty() || port == 0 {
                 return Err(RemoteError::new(
