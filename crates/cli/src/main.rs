@@ -127,6 +127,18 @@ enum Cmd {
         #[arg(required = true)]
         what: Vec<String>,
     },
+    /// Remove this device's project copies a machine hasn't used for a while (off until
+    /// you turn it on). Without options, shows the setting.
+    Cleanup {
+        /// A machine, or `all`.
+        machine: String,
+        /// Turn it on: copies unused this long (e.g. 30d, 2w) are removed, checked hourly.
+        #[arg(long, value_name = "DAYS")]
+        after: Option<String>,
+        /// Turn it off.
+        #[arg(long)]
+        off: bool,
+    },
     /// Remove everything this device left on a machine, then unpair from it.
     Unpair {
         machine: String,
@@ -290,6 +302,11 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
         Cmd::Secret { what } => secrets::run(controller, what).await?,
         Cmd::Footprint { machine } => footprint::show(controller, machine).await?,
         Cmd::Clean { machine, what } => footprint::clean(controller, &machine, &what).await?,
+        Cmd::Cleanup {
+            machine,
+            after,
+            off,
+        } => footprint::cleanup(controller, &machine, after, off).await?,
         Cmd::Unpair { machine, keep } => footprint::unpair(controller, &machine, keep).await?,
         Cmd::Devices { machine } => footprint::devices(controller, &machine).await?,
         Cmd::Revoke { device, on, keep } => {
