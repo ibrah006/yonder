@@ -200,6 +200,9 @@ pub struct PairedController {
     pub permissions: Permissions,
     /// Unix seconds.
     pub paired_at: u64,
+    /// Remove this device's project copies unused for this many days. Off when `None`.
+    #[serde(default)]
+    pub cleanup_after_days: Option<u32>,
 }
 
 /// Agent state: which controllers may connect, and what they may do.
@@ -415,6 +418,7 @@ mod tests {
                 name: name.into(),
                 permissions: Permissions::default(),
                 paired_at: 0,
+                cleanup_after_days: None,
             });
         }
         assert_eq!(state.controllers.len(), 1);
