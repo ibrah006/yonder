@@ -527,7 +527,7 @@ async fn decide(
                 None => {
                     let session = inner
                         .terminals
-                        .open(&controller.name, cols, rows)
+                        .open(*peer, &controller.name, cols, rows)
                         .map_err(internal)?;
                     audit.detail = Some(session.id().to_string());
                     session
