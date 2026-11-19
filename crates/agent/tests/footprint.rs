@@ -249,3 +249,53 @@ async fn unpair_with_wipe_leaves_nothing() {
         "{err}"
     );
 }
+
+#[tokio::test]
+async fn auto_cleanup_is_off_until_a_device_turns_it_on() {
+    let agent_dir = tempfile::tempdir().unwrap();
+    let agent = start_agent(&agent_dir).await;
+    let mac = pair(&agent, "mac").await;
+    let laptop = pair(&agent, "laptop").await;
+    let (mine, _p1) = sync_project(&mac).await;
+    let (theirs, _p2) = sync_project(&laptop).await;
+    let in_three_days = yonder_core::protocol::now_ms() + 3 * 86_400_000;
+
+    // Off by default: nothing goes, however old.
+    assert_eq!(agent.clean_up_unused(in_three_days), 0);
+
+    mac.controller
+        .set_cleanup(&mac.machine, Some(2))
+        .await
+        .unwrap();
+    let fp = mac.controller.footprint(&mac.machine).await.unwrap();
+    assert_eq!(fp.cleanup_after_days, Some(2));
+    // Recently used: kept.
+    assert_eq!(agent.clean_up_unused(yonder_core::protocol::now_ms()), 0);
+    // Unused for three days: only the mac's copy goes; the laptop kept cleanup off.
+    assert_eq!(agent.clean_up_unused(in_three_days), 1);
+    let workspaces = agent_dir.path().join("workspaces");
+    assert!(!workspaces.join(mine.as_str()).exists());
+    assert!(workspaces.join(theirs.as_str()).exists());
+
+    mac.controller
+        .set_cleanup(&mac.machine, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        mac.controller
+            .footprint(&mac.machine)
+            .await
+            .unwrap()
+            .cleanup_after_days,
+        None
+    );
+    let err = mac
+        .controller
+        .set_cleanup(&mac.machine, Some(0))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, Error::Remote(ref e) if e.code == ErrorCode::BadRequest),
+        "{err}"
+    );
+}
