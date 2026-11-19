@@ -696,6 +696,105 @@ impl Workspaces {
             .map_err(|e| Error::io(&full, e))?;
         Ok(data)
     }
+
+    /// Whether `controller` may use the copy. The first device to use a copy owns it;
+    /// others are refused.
+    pub fn claim(&self, id: &WorkspaceId, controller: &DeviceId) -> Result<bool> {
+        let _guard = self.guard();
+        let path = self.meta(id).join(OWNER);
+        match std::fs::read_to_string(&path) {
+            Ok(owner) => Ok(owner.trim() == controller.to_string()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let meta = self.meta(id);
+                std::fs::create_dir_all(&meta).map_err(|e| Error::io(&meta, e))?;
+                std::fs::write(&path, controller.to_string()).map_err(|e| Error::io(&path, e))?;
+                Ok(true)
+            }
+            Err(e) => Err(Error::io(&path, e)),
+        }
+    }
+
+    /// The copies `controller` owns, with their size on disk (build output included).
+    pub fn owned_by(&self, controller: &DeviceId) -> Vec<WorkspaceInfo> {
+        let owner = controller.to_string();
+        let Ok(entries) = std::fs::read_dir(&self.meta_root) else {
+            return Vec::new();
+        };
+        let mut found: Vec<WorkspaceInfo> = entries
+            .flatten()
+            .filter_map(|e| WorkspaceId::parse(e.file_name().to_str()?))
+            .filter(|id| {
+                std::fs::read_to_string(self.meta(id).join(OWNER)).is_ok_and(|o| o.trim() == owner)
+            })
+            .map(|id| {
+                let dir = self.dir(&id);
+                let (files, bytes) = folder_size(&dir);
+                let last_synced_ms = std::fs::metadata(self.meta(&id).join("records"))
+                    .ok()
+                    .map(|m| mtime_ms(&m));
+                WorkspaceInfo {
+                    path: dir.to_string_lossy().into_owned(),
+                    id,
+                    files,
+                    bytes,
+                    last_synced_ms,
+                }
+            })
+            .collect();
+        found.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        found
+    }
+
+    /// Deletes a copy and its bookkeeping; returns the bytes freed.
+    pub fn remove(&self, id: &WorkspaceId) -> Result<u64> {
+        let _guard = self.guard();
+        let dir = self.dir(id);
+        let (_, bytes) = folder_size(&dir);
+        // Links inside (such as .fvm/flutter_sdk) are removed, not followed.
+        for path in [dir, self.meta(id)] {
+            match std::fs::remove_dir_all(&path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(Error::io(&path, e)),
+            }
+        }
+        Ok(bytes)
+    }
+}
+
+const OWNER: &str = "owner";
+
+/// A project copy on a machine, as its owner sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceInfo {
+    pub id: WorkspaceId,
+    pub path: String,
+    pub files: u64,
+    pub bytes: u64,
+    pub last_synced_ms: Option<u64>,
+}
+
+/// Files and bytes under `dir`, without following links.
+fn folder_size(dir: &Path) -> (u64, u64) {
+    let (mut files, mut bytes) = (0, 0);
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(folder) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&folder) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(meta) = std::fs::symlink_metadata(entry.path()) else {
+                continue;
+            };
+            if meta.is_dir() {
+                stack.push(entry.path());
+            } else if meta.is_file() {
+                files += 1;
+                bytes += meta.len();
+            }
+        }
+    }
+    (files, bytes)
 }
 
 #[cfg(test)]
@@ -794,6 +893,33 @@ mod tests {
             ]
         );
         assert_eq!(with.missing, ["missing.txt", "none/*.key"]);
+    }
+
+    #[test]
+    fn first_device_owns_a_copy() {
+        let (_temp, ws, id) = setup();
+        let (mac, laptop) = (
+            crate::identity::DeviceKey::generate().id(),
+            crate::identity::DeviceKey::generate().id(),
+        );
+        assert!(ws.claim(&id, &mac).unwrap());
+        assert!(ws.claim(&id, &mac).unwrap());
+        assert!(!ws.claim(&id, &laptop).unwrap());
+
+        ws.plan(&id, vec![entry("a.txt", b"hello")], true).unwrap();
+        ws.put(&id, vec![part(b"hello")]).unwrap();
+        ws.apply(&id).unwrap();
+        let owned = ws.owned_by(&mac);
+        assert_eq!(owned.len(), 1);
+        assert_eq!((owned[0].files, owned[0].bytes), (1, 5));
+        assert!(owned[0].last_synced_ms.is_some());
+        assert!(ws.owned_by(&laptop).is_empty());
+
+        assert_eq!(ws.remove(&id).unwrap(), 5);
+        assert!(ws.owned_by(&mac).is_empty());
+        assert!(!ws.dir(&id).exists());
+        // Gone, so the next device to use the id owns it.
+        assert!(ws.claim(&id, &laptop).unwrap());
     }
 
     #[test]
