@@ -514,6 +514,7 @@ mod tests {
                 name: Some("box".into()),
                 jobs: None,
                 shell: None,
+                screenshot: None,
             },
             desk.approver(),
         )

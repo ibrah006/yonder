@@ -13,6 +13,8 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 mod build_user;
 mod ipc;
 #[cfg(windows)]
+mod screen;
+#[cfg(windows)]
 mod service;
 
 use yonder_core::agent::{Agent, AgentConfig};
@@ -116,6 +118,13 @@ enum Cmd {
     /// Runs one job. Started by the agent; not for direct use.
     #[command(hide = true)]
     JobRun { job_dir: PathBuf },
+    /// Takes a screenshot into a PNG file (Windows: in the signed-in person's session).
+    /// Started by the agent; not for direct use.
+    #[command(hide = true)]
+    Screenshot { out: PathBuf },
+    /// Copies the screen of the session it runs in. Started by `screenshot`.
+    #[command(hide = true)]
+    CaptureScreen { out: PathBuf },
     /// Git's credential helper for jobs that borrow logins. Run by git; not for direct use.
     #[command(hide = true)]
     GitCredential { job_dir: PathBuf, operation: String },
@@ -163,6 +172,12 @@ fn main() -> Result<()> {
             std::io::stderr(),
         )?;
         return Ok(());
+    }
+    if let Cmd::Screenshot { out } = &args.command {
+        return take_screenshot(out);
+    }
+    if let Cmd::CaptureScreen { out } = &args.command {
+        return capture_screen(out);
     }
     if let Cmd::BuildUser { what } = &args.command {
         return as_build_user(&args, what);
@@ -313,7 +328,11 @@ async fn async_main(args: Args) -> Result<()> {
         Cmd::Resume => set_paused(&state, false),
         Cmd::Jobs => list_jobs(&state),
         Cmd::Audit { count } => show_audit(&state, count),
-        Cmd::JobRun { .. } | Cmd::BuildUser { .. } | Cmd::GitCredential { .. } => {
+        Cmd::JobRun { .. }
+        | Cmd::BuildUser { .. }
+        | Cmd::GitCredential { .. }
+        | Cmd::Screenshot { .. }
+        | Cmd::CaptureScreen { .. } => {
             unreachable!("handled before the runtime starts")
         }
     }
@@ -521,6 +540,7 @@ async fn start_local(
             name,
             jobs: Some(jobs),
             shell,
+            screenshot: screenshot_command(),
         },
         desk.approver(),
     )
@@ -528,6 +548,44 @@ async fn start_local(
     .context("couldn't start the agent")?;
     let local = tokio::spawn(ipc::serve(agent.clone(), desk, state.clone()));
     Ok((agent, local))
+}
+
+/// How this machine takes screenshots (the agent appends the PNG path).
+fn screenshot_command() -> Option<yonder_core::terminal::ShellCommand> {
+    if cfg!(windows) {
+        Some(yonder_core::terminal::ShellCommand {
+            program: std::env::current_exe().ok()?,
+            args: vec!["screenshot".into()],
+        })
+    } else if cfg!(target_os = "macos") {
+        // Works while someone is signed in, once they allow Screen Recording for it.
+        Some(yonder_core::terminal::ShellCommand {
+            program: "/usr/sbin/screencapture".into(),
+            args: vec!["-x".into(), "-t".into(), "png".into()],
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(windows)]
+fn take_screenshot(out: &std::path::Path) -> Result<()> {
+    screen::in_user_session(out)
+}
+
+#[cfg(not(windows))]
+fn take_screenshot(_out: &std::path::Path) -> Result<()> {
+    bail!("screenshots go through screencapture on this system")
+}
+
+#[cfg(windows)]
+fn capture_screen(out: &std::path::Path) -> Result<()> {
+    screen::capture(out)
+}
+
+#[cfg(not(windows))]
+fn capture_screen(_out: &std::path::Path) -> Result<()> {
+    bail!("capture-screen is for Windows")
 }
 
 /// Runs the agent until `stop` resolves.
