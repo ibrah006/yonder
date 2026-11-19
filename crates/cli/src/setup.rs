@@ -137,6 +137,7 @@ pub async fn run(controller: &Controller, machine: &str, recipe: Option<&str>) -
         env: Vec::new(),
         label: Some(format!("setup {}", recipe.name)),
         secrets,
+        borrow_git: false,
     };
     let job = controller.run(&machine, spec).await?;
     eprintln!(
