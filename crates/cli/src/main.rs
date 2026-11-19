@@ -4,6 +4,7 @@
 //! `linux`, `any`), in which case the least busy reachable one is used.
 
 mod footprint;
+mod forward;
 mod jobs;
 mod secrets;
 mod setup;
@@ -174,6 +175,16 @@ enum Cmd {
         #[arg(long)]
         keep: bool,
     },
+    /// Reach a port on a machine from this computer, e.g. a dev server: `yonder forward win
+    /// 3000` serves the machine's port 3000 at localhost:3000 here, until Ctrl-C.
+    Forward {
+        machine: String,
+        /// The port on the machine, or host:port as the machine sees it.
+        target: String,
+        /// Port to listen on here (default: the same).
+        #[arg(long)]
+        local: Option<u16>,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
@@ -331,6 +342,11 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
         Cmd::Revoke { device, on, keep } => {
             footprint::revoke(controller, &device, &on, keep).await?
         }
+        Cmd::Forward {
+            machine,
+            target,
+            local,
+        } => forward::run(controller, &machine, &target, local).await?,
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
