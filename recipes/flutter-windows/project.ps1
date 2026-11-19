@@ -9,6 +9,9 @@
 #   - Shorebird, when the project has shorebird.yaml
 #   - checks: Inno Setup for projects with an .iss, and the git-ignored files
 #     .yonderinclude lists
+#
+# With -CheckOnly (`yonder doctor win`) it installs nothing and only reports.
+param([switch]$CheckOnly)
 # Continue: Windows PowerShell turns a tool's stderr into errors, and these tools
 # report progress there. Each step checks the exit code instead.
 $ErrorActionPreference = 'Continue'
@@ -35,7 +38,7 @@ function Done {
 Write-Host "Setting up $(Split-Path -Leaf (Get-Location)) for $env:USERNAME on $env:COMPUTERNAME"
 
 Step 'Machine tools'
-$machinePart = 'run recipes\flutter-windows\machine.ps1 on the PC as admin'
+$machinePart = 'from your Mac: yonder prep win'
 foreach ($tool in 'git', 'fvm', 'nuget') {
   if (Has $tool) { Ok $tool } else { Need "$tool isn't installed for every account ($machinePart)" }
 }
@@ -54,22 +57,33 @@ if (Test-Path .fvmrc) { $version = (Get-Content .fvmrc -Raw | ConvertFrom-Json).
 if (-not $version -and (Test-Path .fvm\fvm_config.json)) {
   $version = (Get-Content .fvm\fvm_config.json -Raw | ConvertFrom-Json).flutterSdkVersion
 }
+if (-not $version -and (Test-Path pubspec.yaml)) {
+  # An exact version under `environment: flutter:` also pins it.
+  $match = Select-String -Path pubspec.yaml -Pattern '^\s+flutter:\s*["'']?(\d+\.\d+\.\d+)["'']?\s*$' | Select-Object -First 1
+  if ($match) { $version = $match.Matches[0].Groups[1].Value }
+}
 if (-not $version) {
   Need 'the project pins no Flutter version; run `fvm use <version>` in it on your Mac and commit .fvmrc'
   Done
 }
 Note "project pins Flutter $version"
-& fvm install $version --setup
-if ($LASTEXITCODE -ne 0) { Need "fvm couldn't install Flutter $version (output above)"; Done }
-& fvm use $version --force --skip-pub-get
 $flutter = '.fvm\flutter_sdk\bin\flutter.bat'
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $flutter)) { Need "fvm couldn't link .fvm\flutter_sdk (output above)"; Done }
-Ok "Flutter $version linked at .fvm\flutter_sdk"
-& $flutter config --no-analytics | Out-Null
-& $flutter precache --windows
-if ($LASTEXITCODE -ne 0) { Need "flutter precache --windows failed (output above)" }
-& $flutter pub get
-if ($LASTEXITCODE -ne 0) { Need 'flutter pub get failed (output above)' } else { Ok 'packages' }
+if ($CheckOnly) {
+  $linked = (Test-Path $flutter) -and ((& $flutter --version 2>$null | Out-String) -match [regex]::Escape("Flutter $version"))
+  if ($linked) { Ok "Flutter $version linked at .fvm\flutter_sdk" }
+  else { Need "Flutter $version isn't set up for this account: yonder setup win" }
+} else {
+  & fvm install $version --setup
+  if ($LASTEXITCODE -ne 0) { Need "fvm couldn't install Flutter $version (output above)"; Done }
+  & fvm use $version --force --skip-pub-get
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $flutter)) { Need "fvm couldn't link .fvm\flutter_sdk (output above)"; Done }
+  Ok "Flutter $version linked at .fvm\flutter_sdk"
+  & $flutter config --no-analytics | Out-Null
+  & $flutter precache --windows
+  if ($LASTEXITCODE -ne 0) { Need "flutter precache --windows failed (output above)" }
+  & $flutter pub get
+  if ($LASTEXITCODE -ne 0) { Need 'flutter pub get failed (output above)' } else { Ok 'packages' }
+}
 
 if (Test-Path shorebird.yaml) {
   Step 'Shorebird'
@@ -77,6 +91,8 @@ if (Test-Path shorebird.yaml) {
   if (-not (Has shorebird) -and (Test-Path (Join-Path $shorebirdBin 'shorebird.bat'))) { $env:Path += ";$shorebirdBin" }
   if (Has shorebird) {
     Ok 'already installed'
+  } elseif ($CheckOnly) {
+    Need "Shorebird isn't installed for this account: yonder setup win"
   } else {
     Note 'installing for this account...'
     # Its own process, so an `exit` in the installer can't end this script.
@@ -105,7 +121,7 @@ if (Test-Path shorebird.yaml) {
       Need 'save the Shorebird token as a secret: on your Mac run `shorebird login:ci`, then `yonder secret set win SHOREBIRD_TOKEN` and paste it (jobs get it with --secret SHOREBIRD_TOKEN)'
     }
     & shorebird doctor
-  } else {
+  } elseif (-not $CheckOnly) {
     Need "Shorebird didn't install (output above)"
   }
 }
@@ -130,5 +146,5 @@ if (Test-Path .yonderinclude) {
 }
 
 Step 'flutter doctor'
-& $flutter doctor
+if (Test-Path $flutter) { & $flutter doctor } else { Note "skipped: Flutter isn't linked yet" }
 Done
