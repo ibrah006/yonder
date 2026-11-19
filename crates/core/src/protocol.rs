@@ -143,6 +143,9 @@ pub enum Command {
     /// as a dev server. Answered with [`Response::Forwarding`]; after that the stream
     /// carries the connection's bytes both ways until either side finishes.
     Forward { host: String, port: u16 },
+    /// A picture of the machine's screen, as PNG: [`Response::FileData`] pieces, then
+    /// [`Response::Done`]. Needs someone signed in at the machine.
+    Screenshot,
     /// Broadcast the Wake-on-LAN signal for another machine's network card on this
     /// machine's networks. Answered with [`Response::Done`].
     Wake { mac: String },
@@ -170,6 +173,8 @@ impl Command {
             | Command::ListSecrets
             | Command::RemoveSecret(_)
             | Command::AnswerGitCredential { .. } => Some(Permission::RunJobs),
+            // It shows the signed-in person's screen: only devices the owner trusts.
+            Command::Screenshot => Some(Permission::Admin),
             // Waking a machine only sends a broadcast; any paired device may ask.
             Command::Wake { .. } => None,
             Command::Footprint | Command::RemoveFootprint(_) | Command::SetCleanup { .. } => {
@@ -229,6 +234,7 @@ impl Command {
             Command::SetCleanup { .. } => "set_cleanup",
             Command::Forward { .. } => "forward",
             Command::Wake { .. } => "wake",
+            Command::Screenshot => "screenshot",
         }
     }
 
@@ -240,6 +246,7 @@ impl Command {
             | Command::ListJobs
             | Command::ListTerminals
             | Command::ListSecrets
+            | Command::Screenshot
             | Command::Footprint
             | Command::ListDevices => None,
             Command::RemoveFootprint(item) => Some(format!("{item:?}")),
