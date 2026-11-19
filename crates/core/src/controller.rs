@@ -11,6 +11,7 @@ use iroh::endpoint::{ApplicationClose, Connection, ConnectionError, RecvStream, 
 use crate::Os;
 use crate::agent::{APPROVAL_TIMEOUT, clean_name};
 use crate::error::{Error, Result};
+use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
 use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::net::{self, NetConfig};
@@ -603,6 +604,71 @@ impl Controller {
         {
             Response::Done => Ok(()),
             other => Err(unexpected("done", &other)),
+        }
+    }
+
+    /// What this device has left on the machine.
+    pub async fn footprint(&self, machine: &PairedMachine) -> Result<Footprint> {
+        match self.request(machine, Command::Footprint).await? {
+            Response::Footprint(footprint) => Ok(footprint),
+            other => Err(unexpected("a footprint", &other)),
+        }
+    }
+
+    /// Removes part or all of this device's footprint on the machine.
+    pub async fn remove_footprint(
+        &self,
+        machine: &PairedMachine,
+        item: FootprintItem,
+    ) -> Result<Removed> {
+        match self
+            .request_within(machine, Command::RemoveFootprint(item), FILE_WORK_TIMEOUT)
+            .await?
+        {
+            Response::Removed(removed) => Ok(removed),
+            other => Err(unexpected("removed", &other)),
+        }
+    }
+
+    /// Unpairs this device from the machine (after removing its footprint with `wipe`)
+    /// and forgets the machine here.
+    pub async fn unpair(&self, machine: &PairedMachine, wipe: bool) -> Result<Removed> {
+        let removed = match self
+            .request_within(machine, Command::Unpair { wipe }, FILE_WORK_TIMEOUT)
+            .await?
+        {
+            Response::Removed(removed) => removed,
+            other => return Err(unexpected("removed", &other)),
+        };
+        self.forget(&machine.id)?;
+        Ok(removed)
+    }
+
+    /// Devices paired with the machine.
+    pub async fn devices(&self, machine: &PairedMachine) -> Result<Vec<DeviceInfo>> {
+        match self.request(machine, Command::ListDevices).await? {
+            Response::Devices(list) => Ok(list),
+            other => Err(unexpected("devices", &other)),
+        }
+    }
+
+    /// Unpairs another device from the machine, removing its footprint with `wipe`.
+    pub async fn revoke_device(
+        &self,
+        machine: &PairedMachine,
+        id: DeviceId,
+        wipe: bool,
+    ) -> Result<Removed> {
+        match self
+            .request_within(
+                machine,
+                Command::RevokeDevice { id, wipe },
+                FILE_WORK_TIMEOUT,
+            )
+            .await?
+        {
+            Response::Removed(removed) => Ok(removed),
+            other => Err(unexpected("removed", &other)),
         }
     }
 
