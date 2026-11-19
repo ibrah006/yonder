@@ -22,6 +22,7 @@ pub mod net;
 pub mod permissions;
 pub mod protocol;
 pub mod secrets;
+pub mod stats;
 pub mod store;
 pub mod terminal;
 pub mod ticket;
