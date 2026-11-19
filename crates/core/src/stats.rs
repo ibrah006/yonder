@@ -69,6 +69,11 @@ fn disk_space(dir: &Path) -> (u64, u64) {
         return (0, 0);
     };
     let dir = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+    // Windows hands back `\\?\C:\...`, which no mount point (`C:\`) starts.
+    let dir = match dir.to_str().and_then(|d| d.strip_prefix(r"\\?\")) {
+        Some(plain) => std::path::PathBuf::from(plain),
+        None => dir,
+    };
     disks
         .iter()
         .filter(|d| dir.starts_with(d.mount_point()))
