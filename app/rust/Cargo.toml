@@ -1,13 +1,18 @@
 [package]
 name = "yonder_bridge"
+description = "The Yonder app's bridge to the Rust core (flutter_rust_bridge)"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 flutter_rust_bridge = "=2.13.0"
+yonder-core = { path = "../../crates/core" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "process", "io-util"] }
+anyhow = "1"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
