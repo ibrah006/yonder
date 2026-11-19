@@ -60,6 +60,10 @@ pub struct JobSpec {
     /// Saved secrets the job gets (see [`crate::secrets`]). Only names travel here.
     #[serde(default)]
     pub secrets: Vec<SecretUse>,
+    /// Git in the job borrows logins from the device that started it, while that device
+    /// follows the job (see [`crate::credentials`]).
+    #[serde(default)]
+    pub borrow_git: bool,
 }
 
 impl JobSpec {
@@ -71,6 +75,7 @@ impl JobSpec {
             env: Vec::new(),
             label: None,
             secrets: Vec::new(),
+            borrow_git: false,
         }
     }
 
@@ -95,6 +100,9 @@ impl JobSpec {
         if !self.secrets.is_empty() {
             let uses: Vec<_> = self.secrets.iter().map(ToString::to_string).collect();
             summary.push_str(&format!(" [secrets: {}]", uses.join(", ")));
+        }
+        if self.borrow_git {
+            summary.push_str(" [borrows git logins]");
         }
         summary
     }
@@ -323,6 +331,7 @@ impl JobStore {
         let dir = self.job_dir(id);
         let _ = std::fs::remove_file(dir.join(SECRETS));
         remove_secret_files(&dir);
+        crate::credentials::clear(&dir);
     }
 
     /// Deletes a finished job's folder, log included.
