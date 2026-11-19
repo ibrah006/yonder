@@ -229,7 +229,11 @@ class _MachineTile extends StatelessWidget {
                     ? Colors.blue
                     : Colors.green;
     final seen = lastSeen;
-    final subtitle = error != null
+    // It answered, in a form this app doesn't read.
+    final mismatch = error?.contains('broke the protocol') ?? false;
+    final subtitle = mismatch
+        ? 'different version: update its agent'
+        : error != null
         ? seen != null
             ? 'offline · seen ${when(BigInt.from(seen.millisecondsSinceEpoch))}'
             : 'offline'
