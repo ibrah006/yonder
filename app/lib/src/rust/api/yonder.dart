@@ -16,6 +16,9 @@ abstract class Shell implements RustOpaqueInterface {
   /// Leaves the shell running on the machine.
   Future<void> detach();
 
+  /// The shell's output until it exits or the connection drops. Call once.
+  Stream<ShellEvent> events();
+
   String id();
 
   Future<void> resize({required int cols, required int rows});
@@ -59,8 +62,9 @@ abstract class YonderApp implements RustOpaqueInterface {
   static Future<YonderApp> open({String? stateDir}) =>
       RustLib.instance.api.crateApiYonderYonderAppOpen(stateDir: stateDir);
 
-  /// Opens a new shell (`session` empty) or attaches to one, streaming its output.
-  Stream<ShellEvent> openShell({
+  /// Opens a new shell (`session` empty) or attaches to one, replaying output from
+  /// byte `from` (default: all it kept). Read its output with [`Shell::events`].
+  Future<Shell> openShell({
     required String machineId,
     String? session,
     required int cols,

@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 785375710;
+  int get rustContentHash => 1496042512;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -79,6 +79,8 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
 abstract class RustLibApi extends BaseApi {
   Future<void> crateApiYonderShellDetach({required Shell that});
+
+  Stream<ShellEvent> crateApiYonderShellEvents({required Shell that});
 
   String crateApiYonderShellId({required Shell that});
 
@@ -137,7 +139,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<YonderApp> crateApiYonderYonderAppOpen({String? stateDir});
 
-  Stream<ShellEvent> crateApiYonderYonderAppOpenShell({
+  Future<Shell> crateApiYonderYonderAppOpenShell({
     required YonderApp that,
     required String machineId,
     String? session,
@@ -245,6 +247,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "Shell_detach", argNames: ["that"]);
 
   @override
+  Stream<ShellEvent> crateApiYonderShellEvents({required Shell that}) {
+    final sink = RustStreamSink<ShellEvent>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+              that,
+              serializer,
+            );
+            sse_encode_StreamSink_shell_event_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 2,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_AnyhowException,
+          ),
+          constMeta: kCrateApiYonderShellEventsConstMeta,
+          argValues: [that, sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiYonderShellEventsConstMeta => const TaskConstMeta(
+    debugName: "Shell_events",
+    argNames: ["that", "sink"],
+  );
+
+  @override
   String crateApiYonderShellId({required Shell that}) {
     return handler.executeSync(
       SyncTask(
@@ -254,7 +294,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -289,7 +329,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -326,7 +366,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -363,7 +403,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -403,7 +443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -434,7 +474,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -470,7 +510,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 9,
             port: port_,
           );
         },
@@ -501,7 +541,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -544,7 +584,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 10,
+              funcId: 11,
               port: port_,
             );
           },
@@ -584,7 +624,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 12,
             port: port_,
           );
         },
@@ -618,7 +658,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 13,
             port: port_,
           );
         },
@@ -656,7 +696,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 14,
             port: port_,
           );
         },
@@ -687,7 +727,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_machine,
@@ -713,7 +753,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 16,
             port: port_,
           );
         },
@@ -733,7 +773,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "YonderApp_open", argNames: ["stateDir"]);
 
   @override
-  Stream<ShellEvent> crateApiYonderYonderAppOpenShell({
+  Future<Shell> crateApiYonderYonderAppOpenShell({
     required YonderApp that,
     required String machineId,
     String? session,
@@ -741,55 +781,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required int rows,
     BigInt? from,
   }) {
-    final sink = RustStreamSink<ShellEvent>();
-    unawaited(
-      handler.executeNormal(
-        NormalTask(
-          callFfi: (port_) {
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
-              that,
-              serializer,
-            );
-            sse_encode_String(machineId, serializer);
-            sse_encode_opt_String(session, serializer);
-            sse_encode_u_16(cols, serializer);
-            sse_encode_u_16(rows, serializer);
-            sse_encode_opt_box_autoadd_u_64(from, serializer);
-            sse_encode_StreamSink_shell_event_Sse(sink, serializer);
-            pdeCallFfi(
-              generalizedFrbRustBinding,
-              serializer,
-              funcId: 16,
-              port: port_,
-            );
-          },
-          codec: SseCodec(
-            decodeSuccessData:
-                sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell,
-            decodeErrorData: sse_decode_AnyhowException,
-          ),
-          constMeta: kCrateApiYonderYonderAppOpenShellConstMeta,
-          argValues: [that, machineId, session, cols, rows, from, sink],
-          apiImpl: this,
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_opt_String(session, serializer);
+          sse_encode_u_16(cols, serializer);
+          sse_encode_u_16(rows, serializer);
+          sse_encode_opt_box_autoadd_u_64(from, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell,
+          decodeErrorData: sse_decode_AnyhowException,
         ),
+        constMeta: kCrateApiYonderYonderAppOpenShellConstMeta,
+        argValues: [that, machineId, session, cols, rows, from],
+        apiImpl: this,
       ),
     );
-    return sink.stream;
   }
 
   TaskConstMeta get kCrateApiYonderYonderAppOpenShellConstMeta =>
       const TaskConstMeta(
         debugName: "YonderApp_open_shell",
-        argNames: [
-          "that",
-          "machineId",
-          "session",
-          "cols",
-          "rows",
-          "from",
-          "sink",
-        ],
+        argNames: ["that", "machineId", "session", "cols", "rows", "from"],
       );
 
   @override
@@ -809,7 +836,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 18,
             port: port_,
           );
         },
@@ -851,7 +878,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 19,
             port: port_,
           );
         },
@@ -895,7 +922,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 20,
             port: port_,
           );
         },
@@ -935,7 +962,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 21,
             port: port_,
           );
         },
@@ -973,7 +1000,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 22,
             port: port_,
           );
         },
@@ -1011,7 +1038,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 23,
             port: port_,
           );
         },
@@ -1051,7 +1078,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 24,
             port: port_,
           );
         },
@@ -1081,7 +1108,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 25,
             port: port_,
           );
         },
@@ -2564,6 +2591,10 @@ class ShellImpl extends RustOpaque implements Shell {
   Future<void> detach() =>
       RustLib.instance.api.crateApiYonderShellDetach(that: this);
 
+  /// The shell's output until it exits or the connection drops. Call once.
+  Stream<ShellEvent> events() =>
+      RustLib.instance.api.crateApiYonderShellEvents(that: this);
+
   String id() => RustLib.instance.api.crateApiYonderShellId(that: this);
 
   Future<void> resize({required int cols, required int rows}) => RustLib
@@ -2649,8 +2680,9 @@ class YonderAppImpl extends RustOpaque implements YonderApp {
   List<Machine> machines() =>
       RustLib.instance.api.crateApiYonderYonderAppMachines(that: this);
 
-  /// Opens a new shell (`session` empty) or attaches to one, streaming its output.
-  Stream<ShellEvent> openShell({
+  /// Opens a new shell (`session` empty) or attaches to one, replaying output from
+  /// byte `from` (default: all it kept). Read its output with [`Shell::events`].
+  Future<Shell> openShell({
     required String machineId,
     String? session,
     required int cols,

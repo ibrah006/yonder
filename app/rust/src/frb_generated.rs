@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 785375710;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1496042512;
 
 // Section: executor
 
@@ -95,6 +95,66 @@ fn wire__crate__api__yonder__Shell_detach_impl(
                         }
                         let api_that_guard = api_that_guard.unwrap();
                         let output_ok = crate::api::yonder::Shell::detach(&*api_that_guard).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__yonder__Shell_events_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "Shell_events",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Shell>,
+            >>::sse_decode(&mut deserializer);
+            let api_sink = <StreamSink<
+                crate::api::yonder::ShellEvent,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::yonder::Shell::events(&*api_that_guard, api_sink).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -900,10 +960,6 @@ fn wire__crate__api__yonder__YonderApp_open_shell_impl(
             let api_cols = <u16>::sse_decode(&mut deserializer);
             let api_rows = <u16>::sse_decode(&mut deserializer);
             let api_from = <Option<u64>>::sse_decode(&mut deserializer);
-            let api_sink = <StreamSink<
-                crate::api::yonder::ShellEvent,
-                flutter_rust_bridge::for_generated::SseCodec,
-            >>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
@@ -932,7 +988,6 @@ fn wire__crate__api__yonder__YonderApp_open_shell_impl(
                             api_cols,
                             api_rows,
                             api_from,
-                            api_sink,
                         )
                         .await?;
                         std::result::Result::Ok(output_ok)
@@ -1947,33 +2002,34 @@ fn pde_ffi_dispatcher_primary_impl(
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
         1 => wire__crate__api__yonder__Shell_detach_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__yonder__Shell_resize_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__yonder__Shell_send_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__yonder__YonderApp_cancel_job_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__yonder__YonderApp_clean_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__yonder__YonderApp_devices_impl(port, ptr, rust_vec_len, data_len),
-        10 => {
+        2 => wire__crate__api__yonder__Shell_events_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__yonder__Shell_resize_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__yonder__Shell_send_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__yonder__YonderApp_cancel_job_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__yonder__YonderApp_clean_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__yonder__YonderApp_devices_impl(port, ptr, rust_vec_len, data_len),
+        11 => {
             wire__crate__api__yonder__YonderApp_follow_job_impl(port, ptr, rust_vec_len, data_len)
         }
-        11 => wire__crate__api__yonder__YonderApp_footprint_impl(port, ptr, rust_vec_len, data_len),
-        12 => {
+        12 => wire__crate__api__yonder__YonderApp_footprint_impl(port, ptr, rust_vec_len, data_len),
+        13 => {
             wire__crate__api__yonder__YonderApp_is_hosting_impl(port, ptr, rust_vec_len, data_len)
         }
-        13 => wire__crate__api__yonder__YonderApp_jobs_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__yonder__YonderApp_open_impl(port, ptr, rust_vec_len, data_len),
-        16 => {
+        14 => wire__crate__api__yonder__YonderApp_jobs_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__yonder__YonderApp_open_impl(port, ptr, rust_vec_len, data_len),
+        17 => {
             wire__crate__api__yonder__YonderApp_open_shell_impl(port, ptr, rust_vec_len, data_len)
         }
-        17 => wire__crate__api__yonder__YonderApp_pair_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__yonder__YonderApp_revoke_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__yonder__YonderApp_run_job_impl(port, ptr, rust_vec_len, data_len),
-        20 => {
+        18 => wire__crate__api__yonder__YonderApp_pair_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__yonder__YonderApp_revoke_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__yonder__YonderApp_run_job_impl(port, ptr, rust_vec_len, data_len),
+        21 => {
             wire__crate__api__yonder__YonderApp_set_cleanup_impl(port, ptr, rust_vec_len, data_len)
         }
-        21 => wire__crate__api__yonder__YonderApp_shells_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__yonder__YonderApp_status_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__yonder__YonderApp_unpair_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__yonder__init_app_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__yonder__YonderApp_shells_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__yonder__YonderApp_status_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__yonder__YonderApp_unpair_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__yonder__init_app_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1986,10 +2042,10 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        2 => wire__crate__api__yonder__Shell_id_impl(ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__yonder__YonderApp_device_name_impl(ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__yonder__YonderApp_fingerprint_impl(ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__yonder__YonderApp_machines_impl(ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__yonder__Shell_id_impl(ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__yonder__YonderApp_device_name_impl(ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__yonder__YonderApp_fingerprint_impl(ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__yonder__YonderApp_machines_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
