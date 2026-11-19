@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use yonder_core::controller::Controller;
+use yonder_core::credentials::{GitCredential, GitCredentialRequest};
 use yonder_core::jobs::{JobId, JobInfo, JobProgram, JobSpec, JobState};
 use yonder_core::secrets::{SecretName, SecretTarget, SecretUse};
 use yonder_core::store::{PairedMachine, format_datetime_ms};
@@ -45,6 +46,10 @@ pub struct RunArgs {
     /// is deleted when the job ends. Repeatable.
     #[arg(long, value_name = "NAME[=PATH]")]
     pub secret_file: Vec<String>,
+    /// Lend the job your git logins while you follow it: when git on the machine needs
+    /// one, it's taken from this computer's git (keychain) and nothing is saved there.
+    #[arg(long)]
+    pub borrow_git: bool,
     /// The command, after `--`.
     #[arg(last = true, required = true, num_args = 1..)]
     pub command: Vec<String>,
@@ -83,6 +88,7 @@ impl RunArgs {
             env,
             label: self.label.clone(),
             secrets,
+            borrow_git: self.borrow_git,
         })
     }
 }
@@ -169,18 +175,37 @@ pub async fn follow(
     let mut backoff = Duration::from_secs(1);
     let mut warned = false;
     loop {
-        let attempt = controller.logs(machine, id, offset, true, |chunk_offset, data| {
-            // Skip anything already printed (a resend after reconnecting).
-            let skip = offset.saturating_sub(chunk_offset) as usize;
-            if skip < data.len() {
-                let mut out = std::io::stdout().lock();
-                let _ = out.write_all(&data[skip..]);
-                let _ = out.flush();
-                offset = chunk_offset + data.len() as u64;
+        // Borrowed-git requests from the job, answered alongside the log.
+        let (requests, mut asked) = tokio::sync::mpsc::unbounded_channel();
+        let lend = async {
+            while let Some(request) = asked.recv().await {
+                lend_git(controller, machine, id, request).await;
             }
-        });
+            std::future::pending::<()>().await
+        };
+        let on_request = |request| {
+            let _ = requests.send(request);
+        };
+        let attempt = controller.logs_lending(
+            machine,
+            id,
+            offset,
+            true,
+            |chunk_offset, data| {
+                // Skip anything already printed (a resend after reconnecting).
+                let skip = offset.saturating_sub(chunk_offset) as usize;
+                if skip < data.len() {
+                    let mut out = std::io::stdout().lock();
+                    let _ = out.write_all(&data[skip..]);
+                    let _ = out.flush();
+                    offset = chunk_offset + data.len() as u64;
+                }
+            },
+            on_request,
+        );
         let result = tokio::select! {
             result = attempt => result,
+            _ = lend => unreachable!("lending never ends by itself"),
             _ = tokio::signal::ctrl_c() => {
                 eprintln!();
                 eprintln!("[yonder] detached; job {id} keeps running on {}.", machine.name);
@@ -210,6 +235,54 @@ pub async fn follow(
             }
         }
     }
+}
+
+/// Answers a job's git request with this computer's own login, if it has one.
+async fn lend_git(
+    controller: &Controller,
+    machine: &PairedMachine,
+    job: &JobId,
+    request: GitCredentialRequest,
+) {
+    let what = request.describe();
+    let credential = git_fill(&request).await;
+    match &credential {
+        Some(c) => eprintln!(
+            "\n[yonder] lending your git login ({}) for {what}",
+            c.username
+        ),
+        None => eprintln!("\n[yonder] no saved git login for {what} here; declining"),
+    }
+    if let Err(err) = controller
+        .answer_git_credential(machine, job, request.id, credential)
+        .await
+    {
+        eprintln!("[yonder] couldn't answer the git request: {err}");
+    }
+}
+
+/// `git credential fill` without prompting: the keychain or whatever helper git uses here.
+async fn git_fill(request: &GitCredentialRequest) -> Option<GitCredential> {
+    use tokio::io::AsyncWriteExt;
+    let mut child = tokio::process::Command::new("git")
+        .args(["credential", "fill"])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+    let mut stdin = child.stdin.take()?;
+    stdin
+        .write_all(request.to_git_input().as_bytes())
+        .await
+        .ok()?;
+    drop(stdin);
+    let output = child.wait_with_output().await.ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    GitCredential::from_git_output(&String::from_utf8_lossy(&output.stdout))
 }
 
 fn finish_message(machine: &PairedMachine, job: &JobInfo) -> ExitCode {
@@ -368,6 +441,7 @@ mod tests {
             pull: vec![],
             secret: vec![],
             secret_file: vec![],
+            borrow_git: false,
             command: command.iter().map(|s| s.to_string()).collect(),
         }
     }
