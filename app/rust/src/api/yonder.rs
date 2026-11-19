@@ -75,6 +75,28 @@ pub struct MachineStatus {
     pub pending_restart: Option<bool>,
 }
 
+/// A setup recipe the app can run.
+#[derive(Debug, Clone)]
+pub struct RecipeInfo {
+    pub name: String,
+    /// `win`, `mac` or `linux`.
+    pub os: String,
+    pub about: String,
+}
+
+/// The recipes this app carries.
+#[frb(sync)]
+pub fn recipes() -> Vec<RecipeInfo> {
+    yonder_core::recipes::RECIPES
+        .iter()
+        .map(|r| RecipeInfo {
+            name: r.name.into(),
+            os: r.os.short_name().into(),
+            about: r.about.into(),
+        })
+        .collect()
+}
+
 /// One job.
 #[derive(Debug, Clone)]
 pub struct Job {
@@ -347,6 +369,22 @@ impl YonderApp {
             let mut spec = JobSpec::shell(command);
             spec.cwd = cwd.filter(|c| !c.trim().is_empty());
             spec.label = label.filter(|l| !l.trim().is_empty());
+            Ok(job(c.run(&m, spec).await?))
+        })
+        .await
+    }
+
+    /// Runs a recipe's machine part with administrator rights: tools for every account
+    /// and settings for builds. Needs the admin permission on the machine.
+    pub async fn prepare_machine(&self, machine_id: String, recipe: String) -> Result<Job> {
+        let (c, m) = (self.controller.clone(), self.find(&machine_id)?);
+        let recipe = yonder_core::recipes::by_name(&recipe)
+            .ok_or_else(|| anyhow!("no recipe called {recipe}"))?;
+        on_runtime(async move {
+            let mut spec = JobSpec::shell("");
+            spec.program = yonder_core::recipes::powershell(recipe.machine_script, &[]);
+            spec.label = Some(format!("prep {}", recipe.name));
+            spec.admin = true;
             Ok(job(c.run(&m, spec).await?))
         })
         .await

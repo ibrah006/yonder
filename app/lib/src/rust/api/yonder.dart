@@ -9,7 +9,10 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'yonder.freezed.dart';
 
 // These functions are ignored because they are not marked as `pub`: `find`, `git_fill`, `job_id`, `job`, `machine`, `on_runtime`, `removed`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+
+/// The recipes this app carries.
+List<RecipeInfo> recipes() => RustLib.instance.api.crateApiYonderRecipes();
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Shell>>
 abstract class Shell implements RustOpaqueInterface {
@@ -75,6 +78,13 @@ abstract class YonderApp implements RustOpaqueInterface {
   /// Pairs with a machine using the ticket `yonder-agent pair` showed; the machine's
   /// owner approves it there after comparing [`YonderApp::fingerprint`].
   Future<Machine> pair({required String ticket});
+
+  /// Runs a recipe's machine part with administrator rights: tools for every account
+  /// and settings for builds. Needs the admin permission on the machine.
+  Future<Job> prepareMachine({
+    required String machineId,
+    required String recipe,
+  });
 
   /// Cuts another device off a machine, removing what it left unless `keep`.
   Future<Removed> revoke({
@@ -418,6 +428,29 @@ class ProjectCopy {
           files == other.files &&
           bytes == other.bytes &&
           lastSyncedMs == other.lastSyncedMs;
+}
+
+/// A setup recipe the app can run.
+class RecipeInfo {
+  final String name;
+
+  /// `win`, `mac` or `linux`.
+  final String os;
+  final String about;
+
+  const RecipeInfo({required this.name, required this.os, required this.about});
+
+  @override
+  int get hashCode => name.hashCode ^ os.hashCode ^ about.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecipeInfo &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          os == other.os &&
+          about == other.about;
 }
 
 class Removed {

@@ -130,6 +130,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ProjectCopy> dco_decode_list_project_copy(dynamic raw);
 
   @protected
+  List<RecipeInfo> dco_decode_list_recipe_info(dynamic raw);
+
+  @protected
   List<Secret> dco_decode_list_secret(dynamic raw);
 
   @protected
@@ -164,6 +167,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProjectCopy dco_decode_project_copy(dynamic raw);
+
+  @protected
+  RecipeInfo dco_decode_recipe_info(dynamic raw);
 
   @protected
   Removed dco_decode_removed(dynamic raw);
@@ -302,6 +308,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ProjectCopy> sse_decode_list_project_copy(SseDeserializer deserializer);
 
   @protected
+  List<RecipeInfo> sse_decode_list_recipe_info(SseDeserializer deserializer);
+
+  @protected
   List<Secret> sse_decode_list_secret(SseDeserializer deserializer);
 
   @protected
@@ -336,6 +345,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProjectCopy sse_decode_project_copy(SseDeserializer deserializer);
+
+  @protected
+  RecipeInfo sse_decode_recipe_info(SseDeserializer deserializer);
 
   @protected
   Removed sse_decode_removed(SseDeserializer deserializer);
@@ -491,6 +503,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_recipe_info(
+    List<RecipeInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_secret(List<Secret> self, SseSerializer serializer);
 
   @protected
@@ -528,6 +546,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_project_copy(ProjectCopy self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_recipe_info(RecipeInfo self, SseSerializer serializer);
 
   @protected
   void sse_encode_removed(Removed self, SseSerializer serializer);

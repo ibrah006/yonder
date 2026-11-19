@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1496042512;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1697930611;
 
 // Section: executor
 
@@ -1056,6 +1056,68 @@ fn wire__crate__api__yonder__YonderApp_pair_impl(
         },
     )
 }
+fn wire__crate__api__yonder__YonderApp_prepare_machine_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "YonderApp_prepare_machine",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<YonderApp>,
+            >>::sse_decode(&mut deserializer);
+            let api_machine_id = <String>::sse_decode(&mut deserializer);
+            let api_recipe = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::yonder::YonderApp::prepare_machine(
+                            &*api_that_guard,
+                            api_machine_id,
+                            api_recipe,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__yonder__YonderApp_revoke_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1460,6 +1522,35 @@ fn wire__crate__api__yonder__init_app_impl(
         },
     )
 }
+fn wire__crate__api__yonder__recipes_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "recipes",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::yonder::recipes())?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
 
 // Section: related_funcs
 
@@ -1708,6 +1799,18 @@ impl SseDecode for Vec<crate::api::yonder::ProjectCopy> {
     }
 }
 
+impl SseDecode for Vec<crate::api::yonder::RecipeInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::yonder::RecipeInfo>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::yonder::Secret> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1900,6 +2003,20 @@ impl SseDecode for crate::api::yonder::ProjectCopy {
     }
 }
 
+impl SseDecode for crate::api::yonder::RecipeInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_os = <String>::sse_decode(deserializer);
+        let mut var_about = <String>::sse_decode(deserializer);
+        return crate::api::yonder::RecipeInfo {
+            name: var_name,
+            os: var_os,
+            about: var_about,
+        };
+    }
+}
+
 impl SseDecode for crate::api::yonder::Removed {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2057,15 +2174,21 @@ fn pde_ffi_dispatcher_primary_impl(
             wire__crate__api__yonder__YonderApp_open_shell_impl(port, ptr, rust_vec_len, data_len)
         }
         18 => wire__crate__api__yonder__YonderApp_pair_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__yonder__YonderApp_revoke_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__yonder__YonderApp_run_job_impl(port, ptr, rust_vec_len, data_len),
-        21 => {
+        19 => wire__crate__api__yonder__YonderApp_prepare_machine_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        20 => wire__crate__api__yonder__YonderApp_revoke_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__yonder__YonderApp_run_job_impl(port, ptr, rust_vec_len, data_len),
+        22 => {
             wire__crate__api__yonder__YonderApp_set_cleanup_impl(port, ptr, rust_vec_len, data_len)
         }
-        22 => wire__crate__api__yonder__YonderApp_shells_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__yonder__YonderApp_status_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__yonder__YonderApp_unpair_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__yonder__init_app_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__yonder__YonderApp_shells_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__yonder__YonderApp_status_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__yonder__YonderApp_unpair_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__yonder__init_app_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2082,6 +2205,7 @@ fn pde_ffi_dispatcher_sync_impl(
         8 => wire__crate__api__yonder__YonderApp_device_name_impl(ptr, rust_vec_len, data_len),
         10 => wire__crate__api__yonder__YonderApp_fingerprint_impl(ptr, rust_vec_len, data_len),
         15 => wire__crate__api__yonder__YonderApp_machines_impl(ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__yonder__recipes_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2295,6 +2419,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::yonder::ProjectCopy>
     for crate::api::yonder::ProjectCopy
 {
     fn into_into_dart(self) -> crate::api::yonder::ProjectCopy {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::yonder::RecipeInfo {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.name.into_into_dart().into_dart(),
+            self.os.into_into_dart().into_dart(),
+            self.about.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::yonder::RecipeInfo
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::yonder::RecipeInfo>
+    for crate::api::yonder::RecipeInfo
+{
+    fn into_into_dart(self) -> crate::api::yonder::RecipeInfo {
         self
     }
 }
@@ -2582,6 +2728,16 @@ impl SseEncode for Vec<crate::api::yonder::ProjectCopy> {
     }
 }
 
+impl SseEncode for Vec<crate::api::yonder::RecipeInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::yonder::RecipeInfo>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::yonder::Secret> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2725,6 +2881,15 @@ impl SseEncode for crate::api::yonder::ProjectCopy {
         <u64>::sse_encode(self.files, serializer);
         <u64>::sse_encode(self.bytes, serializer);
         <Option<u64>>::sse_encode(self.last_synced_ms, serializer);
+    }
+}
+
+impl SseEncode for crate::api::yonder::RecipeInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.os, serializer);
+        <String>::sse_encode(self.about, serializer);
     }
 }
 
