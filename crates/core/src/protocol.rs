@@ -16,6 +16,7 @@ use iroh::endpoint::{ReadExactError, RecvStream, SendStream};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::Os;
+use crate::credentials::{GitCredential, GitCredentialRequest};
 use crate::error::{Error, Result};
 use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
 use crate::identity::{DeviceId, DeviceKey};
@@ -130,6 +131,13 @@ pub enum Command {
     /// Unpair another device (a lost laptop), removing its footprint with `wipe`.
     /// Answered with [`Response::Removed`].
     RevokeDevice { id: DeviceId, wipe: bool },
+    /// Answer a borrowed-git request from one of this controller's jobs (`None`
+    /// declines). Answered with [`Response::Done`]. The login is never logged.
+    AnswerGitCredential {
+        job: JobId,
+        request: String,
+        credential: Option<GitCredential>,
+    },
 }
 
 impl Command {
@@ -149,7 +157,8 @@ impl Command {
             | Command::ReadFile { .. }
             | Command::SetSecret { .. }
             | Command::ListSecrets
-            | Command::RemoveSecret(_) => Some(Permission::RunJobs),
+            | Command::RemoveSecret(_)
+            | Command::AnswerGitCredential { .. } => Some(Permission::RunJobs),
             Command::Footprint | Command::RemoveFootprint(_) => Some(Permission::Footprint),
             // Leaving is always allowed.
             Command::Unpair { .. } => None,
@@ -199,6 +208,7 @@ impl Command {
             Command::Unpair { .. } => "unpair",
             Command::ListDevices => "list_devices",
             Command::RevokeDevice { .. } => "revoke_device",
+            Command::AnswerGitCredential { .. } => "answer_git_credential",
         }
     }
 
@@ -215,6 +225,18 @@ impl Command {
             Command::RemoveFootprint(item) => Some(format!("{item:?}")),
             Command::Unpair { wipe } => Some(format!("wipe: {wipe}")),
             Command::RevokeDevice { id, wipe } => Some(format!("{id} wipe: {wipe}")),
+            Command::AnswerGitCredential {
+                job,
+                request,
+                credential,
+            } => Some(format!(
+                "{job} {request}: {}",
+                if credential.is_some() {
+                    "lent"
+                } else {
+                    "declined"
+                }
+            )),
             Command::SetSecret { name, .. } | Command::RemoveSecret(name) => Some(name.to_string()),
             Command::OpenTerminal { session, .. } => session.as_ref().map(ToString::to_string),
             Command::CloseTerminal(id) => Some(id.to_string()),
@@ -425,6 +447,9 @@ pub enum Response {
     Footprint(Footprint),
     Removed(Removed),
     Devices(Vec<DeviceInfo>),
+    /// Inside a log stream: git in the job needs a login. Answer with
+    /// [`Command::AnswerGitCredential`].
+    GitCredentialRequest(GitCredentialRequest),
 }
 
 /// Description of a machine, as seen by one controller.
