@@ -50,6 +50,10 @@ pub struct RunArgs {
     /// one, it's taken from this computer's git (keychain) and nothing is saved there.
     #[arg(long)]
     pub borrow_git: bool,
+    /// Run with administrator rights instead of as the build account. Needs the admin
+    /// permission, which the machine's owner grants: `yonder-agent allow <device> admin`.
+    #[arg(long)]
+    pub admin: bool,
     /// The command, after `--`.
     #[arg(last = true, required = true, num_args = 1..)]
     pub command: Vec<String>,
@@ -89,6 +93,7 @@ impl RunArgs {
             label: self.label.clone(),
             secrets,
             borrow_git: self.borrow_git,
+            admin: self.admin,
         })
     }
 }
@@ -442,6 +447,7 @@ mod tests {
             secret: vec![],
             secret_file: vec![],
             borrow_git: false,
+            admin: false,
             command: command.iter().map(|s| s.to_string()).collect(),
         }
     }

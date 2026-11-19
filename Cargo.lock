@@ -4606,7 +4606,6 @@ dependencies = [
  "anyhow",
  "clap",
  "crossterm",
- "data-encoding",
  "futures-util",
  "tempfile",
  "tokio",

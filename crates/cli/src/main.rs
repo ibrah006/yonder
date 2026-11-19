@@ -101,13 +101,26 @@ enum Cmd {
         #[arg(required = true)]
         patterns: Vec<String>,
     },
-    /// Install what the project you're in needs on a machine (its Flutter, Shorebird…).
-    ///
-    /// Runs a recipe's project part as the build account; the recipe's machine part
-    /// (tools for every account) runs once on the machine as admin.
+    /// Install what the project you're in needs on a machine (its Flutter, Shorebird…),
+    /// for the build account. Lists anything still missing.
     Setup {
         machine: String,
         /// Recipe to use (default: the one that fits the project).
+        #[arg(long)]
+        recipe: Option<String>,
+    },
+    /// Check what the project you're in needs on a machine, without installing anything.
+    Doctor {
+        machine: String,
+        #[arg(long)]
+        recipe: Option<String>,
+    },
+    /// Install the tools every account needs and set the machine up for builds (Visual
+    /// Studio, Git, Developer Mode, power…), with administrator rights. Needs the admin
+    /// permission: on the machine, `yonder-agent allow <this device> admin`.
+    Prep {
+        machine: String,
+        /// Recipe to use (default: the one that fits the project you're in).
         #[arg(long)]
         recipe: Option<String>,
     },
@@ -297,7 +310,13 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             workspace::pull_here(controller, &machine, &patterns).await?;
         }
         Cmd::Setup { machine, recipe } => {
-            return setup::run(controller, &machine, recipe.as_deref()).await;
+            return setup::run(controller, &machine, recipe.as_deref(), setup::Mode::Setup).await;
+        }
+        Cmd::Doctor { machine, recipe } => {
+            return setup::run(controller, &machine, recipe.as_deref(), setup::Mode::Doctor).await;
+        }
+        Cmd::Prep { machine, recipe } => {
+            return setup::run(controller, &machine, recipe.as_deref(), setup::Mode::Prep).await;
         }
         Cmd::Secret { what } => secrets::run(controller, what).await?,
         Cmd::Footprint { machine } => footprint::show(controller, machine).await?,
