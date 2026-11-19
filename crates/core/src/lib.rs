@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 pub mod agent;
 pub mod audit;
 pub mod controller;
+pub mod credentials;
 pub mod error;
 pub mod footprint;
 pub mod identity;
