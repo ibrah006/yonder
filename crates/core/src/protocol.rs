@@ -23,6 +23,7 @@ use crate::identity::{DeviceId, DeviceKey};
 use crate::jobs::{JobId, JobInfo, JobSpec};
 use crate::permissions::{Permission, Permissions};
 use crate::secrets::{SecretInfo, SecretName};
+use crate::stats::MachineStats;
 use crate::terminal::{SessionId, TerminalInfo};
 use crate::workspace::{BlobPart, FileEntry, Hash, WorkspaceId};
 
@@ -472,6 +473,8 @@ pub struct MachineInfo {
     pub your_permissions: Permissions,
     /// The owner paused new jobs on this machine.
     pub paused: bool,
+    /// CPU, memory, disk and so on, if the machine could measure them.
+    pub stats: Option<MachineStats>,
 }
 
 /// Why the agent refused or failed a request.
