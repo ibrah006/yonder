@@ -3,6 +3,7 @@
 //! Machines can be named by their name, the start of their id, or by OS (`win`, `mac`,
 //! `linux`, `any`), in which case the least busy reachable one is used.
 
+mod footprint;
 mod jobs;
 mod secrets;
 mod setup;
@@ -115,6 +116,39 @@ enum Cmd {
         #[command(subcommand)]
         what: secrets::SecretCmd,
     },
+    /// What this device has left on a machine (or on every paired machine).
+    Footprint { machine: Option<String> },
+    /// Remove what this device left on a machine (`all` for every machine).
+    ///
+    /// WHAT: everything, jobs, shells, project (the copy of the git project you're in),
+    /// secret:NAME or workspace:ID.
+    Clean {
+        machine: String,
+        #[arg(required = true)]
+        what: Vec<String>,
+    },
+    /// Remove everything this device left on a machine, then unpair from it.
+    Unpair {
+        machine: String,
+        /// Keep this device's secrets, project copies and jobs there.
+        #[arg(long)]
+        keep: bool,
+    },
+    /// Devices paired with a machine.
+    Devices { machine: String },
+    /// Cut a lost device off your machines and remove what it left there.
+    ///
+    /// Example: yonder revoke old-laptop
+    Revoke {
+        /// Its name or the start of its id (see `yonder devices <machine>`).
+        device: String,
+        /// Only on this machine (default: every paired machine).
+        #[arg(long, default_value = "all")]
+        on: String,
+        /// Keep what it left (secrets, project copies, jobs).
+        #[arg(long)]
+        keep: bool,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
@@ -130,7 +164,7 @@ enum Cmd {
     Ping { machine: String },
     /// Show a machine's details and what this device may do there.
     Info { machine: String },
-    /// Remove a machine from this device's list. Revoke it on the machine too.
+    /// Remove a machine from this device's list only; `yonder unpair` also leaves the machine.
     Forget { machine: String },
     /// Show this device's id and fingerprint.
     Whoami,
@@ -254,6 +288,13 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             return setup::run(controller, &machine, recipe.as_deref()).await;
         }
         Cmd::Secret { what } => secrets::run(controller, what).await?,
+        Cmd::Footprint { machine } => footprint::show(controller, machine).await?,
+        Cmd::Clean { machine, what } => footprint::clean(controller, &machine, &what).await?,
+        Cmd::Unpair { machine, keep } => footprint::unpair(controller, &machine, keep).await?,
+        Cmd::Devices { machine } => footprint::devices(controller, &machine).await?,
+        Cmd::Revoke { device, on, keep } => {
+            footprint::revoke(controller, &device, &on, keep).await?
+        }
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
