@@ -633,6 +633,40 @@ impl Controller {
         }
     }
 
+    /// Opens a connection to `host:port` as the machine sees it (a port forward). Bytes
+    /// written to the first half reach that port; its answers come out of the second.
+    pub async fn forward(
+        &self,
+        machine: &PairedMachine,
+        host: &str,
+        port: u16,
+    ) -> Result<(StreamSend, StreamRecv)> {
+        let command = Command::Forward {
+            host: host.to_string(),
+            port,
+        };
+        let signed = SignedRequest::new(&self.key, machine.id, command);
+        let opened = tokio::time::timeout(REQUEST_TIMEOUT, async {
+            let (mut send, mut recv) = self.open_stream(machine).await?;
+            // Not finished: the connection's bytes follow on the same stream.
+            write_frame(&mut send, &signed).await?;
+            match read_frame::<Response>(&mut recv).await? {
+                Some(Response::Forwarding) => Ok((send, recv)),
+                Some(Response::Error(err)) => Err(Error::Remote(err)),
+                Some(other) => Err(unexpected("a forwarded connection", &other)),
+                None => Err(Error::Protocol("the machine closed the stream".into())),
+            }
+        })
+        .await
+        .map_err(|_| Error::Timeout("no answer from the machine"))
+        .and_then(|r| r);
+        match opened {
+            Err(err @ Error::Remote(_)) => Err(err),
+            Err(err) => Err(self.failed(machine, err).await),
+            ok => ok,
+        }
+    }
+
     /// Terminal sessions on the machine, newest first.
     pub async fn terminals(&self, machine: &PairedMachine) -> Result<Vec<TerminalInfo>> {
         match self.request(machine, Command::ListTerminals).await? {
