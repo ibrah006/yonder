@@ -160,6 +160,11 @@ impl StateDir {
         self.0.join("device.key")
     }
 
+    /// Where the Yonder app hosts this device's connections for the CLI.
+    pub fn host_socket(&self) -> PathBuf {
+        self.0.join("app.sock")
+    }
+
     pub fn agent_file(&self) -> PathBuf {
         self.0.join("agent.json")
     }
