@@ -139,6 +139,10 @@ pub enum Command {
         request: String,
         credential: Option<GitCredential>,
     },
+    /// Connect to `host:port` as seen from the machine (usually its own `127.0.0.1`), such
+    /// as a dev server. Answered with [`Response::Forwarding`]; after that the stream
+    /// carries the connection's bytes both ways until either side finishes.
+    Forward { host: String, port: u16 },
     /// Turn this controller's auto-cleanup on (project copies unused for `after_days`
     /// are removed) or off with `None`. Answered with [`Response::Done`].
     SetCleanup { after_days: Option<u32> },
@@ -169,9 +173,11 @@ impl Command {
             // Leaving is always allowed.
             Command::Unpair { .. } => None,
             Command::ListDevices | Command::RevokeDevice { .. } => Some(Permission::ManageMachine),
-            Command::OpenTerminal { .. } | Command::ListTerminals | Command::CloseTerminal(_) => {
-                Some(Permission::Terminal)
-            }
+            // Like a shell, a forwarded port reaches whatever the machine can reach.
+            Command::OpenTerminal { .. }
+            | Command::ListTerminals
+            | Command::CloseTerminal(_)
+            | Command::Forward { .. } => Some(Permission::Terminal),
         }
     }
 
@@ -216,6 +222,7 @@ impl Command {
             Command::RevokeDevice { .. } => "revoke_device",
             Command::AnswerGitCredential { .. } => "answer_git_credential",
             Command::SetCleanup { .. } => "set_cleanup",
+            Command::Forward { .. } => "forward",
         }
     }
 
@@ -232,6 +239,7 @@ impl Command {
             Command::RemoveFootprint(item) => Some(format!("{item:?}")),
             Command::Unpair { wipe } => Some(format!("wipe: {wipe}")),
             Command::RevokeDevice { id, wipe } => Some(format!("{id} wipe: {wipe}")),
+            Command::Forward { host, port } => Some(format!("{host}:{port}")),
             Command::SetCleanup { after_days } => Some(match after_days {
                 Some(days) => format!("after {days} days"),
                 None => "off".into(),
@@ -461,6 +469,8 @@ pub enum Response {
     /// Inside a log stream: git in the job needs a login. Answer with
     /// [`Command::AnswerGitCredential`].
     GitCredentialRequest(GitCredentialRequest),
+    /// The machine connected; the stream now carries the forwarded connection.
+    Forwarding,
 }
 
 /// Description of a machine, as seen by one controller.
