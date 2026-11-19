@@ -16,7 +16,9 @@ use crate::Os;
 use crate::audit::{AuditEntry, AuditLog};
 use crate::credentials;
 use crate::error::Result;
-use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
+use crate::footprint::{
+    DeviceInfo, DiskEncryption, Footprint, FootprintItem, Removed, disk_encryption,
+};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
 use crate::jobs::manager::{JobManager, JobsConfig};
 use crate::jobs::{JobId, JobMeta, JobStore};
@@ -31,7 +33,7 @@ use crate::secrets::{SecretStore, UseError};
 use crate::store::{AgentState, PairedController, StateDir, default_device_name, now_secs};
 use crate::terminal::{Session, ShellCommand, TerminalInput, TerminalManager};
 use crate::ticket::{PairingTicket, pairing_proof, proof_matches};
-use crate::workspace::{WorkspaceId, Workspaces};
+use crate::workspace::{WorkspaceId, WorkspaceInfo, Workspaces};
 
 /// How long someone at the machine has to approve a pairing request.
 pub const APPROVAL_TIMEOUT: Duration = Duration::from_secs(120);
@@ -211,6 +213,7 @@ impl Agent {
             secrets: SecretStore::new(config.state.secrets_dir()),
         });
         tokio::spawn(accept_loop(inner.clone()));
+        tokio::spawn(cleanup_loop(Arc::downgrade(&inner)));
         info!(id = %inner.id, name = %inner.machine_name, "agent started");
         Ok(Agent { inner })
     }
@@ -292,6 +295,12 @@ impl Agent {
         self.inner.revoke(id, true)
     }
 
+    /// Runs auto-cleanup as if it were `now_ms` (the agent also does this every hour).
+    /// Returns how many project copies were removed.
+    pub fn clean_up_unused(&self, now_ms: u64) -> usize {
+        self.inner.clean_up_unused(now_ms)
+    }
+
     /// Stops accepting connections and closes open ones.
     pub async fn shutdown(&self) {
         self.inner.endpoint.close().await;
@@ -349,7 +358,69 @@ impl Inner {
                 .into_iter()
                 .filter(|t| &t.owner == id)
                 .collect(),
+            cleanup_after_days: controller.cleanup_after_days,
+            disk_encryption: DiskEncryption::Unknown,
         })
+    }
+
+    /// When a project copy was last used: synced, or a job started in it.
+    fn last_used_ms(&self, workspace: &WorkspaceInfo) -> u64 {
+        let dir = self.workspaces.dir(&workspace.id);
+        let last_job = self
+            .jobs
+            .as_ref()
+            .map(|j| j.list())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|j| {
+                j.meta
+                    .spec
+                    .cwd
+                    .as_deref()
+                    .is_some_and(|cwd| Path::new(cwd).starts_with(&dir))
+            })
+            .map(|j| j.meta.created_at_ms)
+            .max();
+        workspace
+            .last_synced_ms
+            .into_iter()
+            .chain(last_job)
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Removes project copies unused for longer than their owner's auto-cleanup allows.
+    /// Returns how many went.
+    fn clean_up_unused(&self, now_ms: u64) -> usize {
+        let Ok(state) = self.load_state() else {
+            return 0;
+        };
+        let mut removed = 0;
+        for controller in &state.controllers {
+            let Some(days) = controller.cleanup_after_days else {
+                continue;
+            };
+            let limit = u64::from(days) * 86_400_000;
+            for workspace in self.workspaces.owned_by(&controller.id) {
+                let idle = now_ms.saturating_sub(self.last_used_ms(&workspace));
+                if idle <= limit || self.job_running_in(&self.workspaces.dir(&workspace.id)) {
+                    continue;
+                }
+                match self.workspaces.remove(&workspace.id) {
+                    Ok(bytes) => {
+                        removed += 1;
+                        info!(
+                            controller = %controller.name,
+                            workspace = %workspace.id,
+                            bytes,
+                            "auto-cleanup removed an unused project copy"
+                        );
+                    }
+                    Err(err) => warn!(workspace = %workspace.id, "auto-cleanup failed: {err}"),
+                }
+            }
+        }
+        removed
     }
 
     /// Whether an unfinished job (anyone's) runs inside `dir`.
@@ -750,9 +821,30 @@ async fn decide(
         Command::ListSecrets => Reply::One(Box::new(Response::Secrets(
             inner.secrets.list(peer).map_err(internal)?,
         ))),
-        Command::Footprint => Reply::One(Box::new(Response::Footprint(
-            inner.footprint(&controller).map_err(internal)?,
-        ))),
+        Command::Footprint => {
+            let mut footprint = inner.footprint(&controller).map_err(internal)?;
+            footprint.disk_encryption = tokio::task::spawn_blocking(disk_encryption)
+                .await
+                .unwrap_or(DiskEncryption::Unknown);
+            Reply::One(Box::new(Response::Footprint(footprint)))
+        }
+        Command::SetCleanup { after_days } => {
+            if after_days == Some(0) {
+                return Err(RemoteError::new(
+                    ErrorCode::BadRequest,
+                    "auto-cleanup needs at least one day",
+                ));
+            }
+            {
+                let _write = lock(&inner.state_write);
+                let mut state = inner.load_state().map_err(internal)?;
+                if let Some(c) = state.controllers.iter_mut().find(|c| &c.id == peer) {
+                    c.cleanup_after_days = after_days;
+                }
+                state.save(&inner.state_path).map_err(internal)?;
+            }
+            Reply::One(Box::new(Response::Done))
+        }
         Command::RemoveFootprint(item) => {
             if let FootprintItem::Workspace(ws) = &item
                 && !inner.workspaces.owned_by(peer).iter().any(|w| &w.id == ws)
@@ -994,6 +1086,19 @@ async fn stream_logs(
     }
 }
 
+/// Auto-cleanup: shortly after starting, then hourly, while the agent runs.
+async fn cleanup_loop(inner: std::sync::Weak<Inner>) {
+    let mut wait = Duration::from_secs(60);
+    loop {
+        tokio::time::sleep(wait).await;
+        wait = Duration::from_secs(3600);
+        let Some(inner) = inner.upgrade() else {
+            return;
+        };
+        let _ = tokio::task::spawn_blocking(move || inner.clean_up_unused(now_ms())).await;
+    }
+}
+
 async fn serve_pairing(inner: Arc<Inner>, conn: Connection) {
     let peer = conn.remote_id();
     let Ok((mut send, mut recv)) = conn.accept_bi().await else {
@@ -1070,6 +1175,7 @@ async fn pair(inner: &Inner, peer: DeviceId, request: PairRequest) -> PairRespon
         name: candidate.controller_name,
         permissions: Permissions::for_new_controller(),
         paired_at: now_secs(),
+        cleanup_after_days: None,
     };
     let saved = {
         let _write = lock(&inner.state_write);
