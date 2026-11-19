@@ -23,7 +23,7 @@ use crate::identity::{DeviceId, DeviceKey, fingerprint};
 use crate::jobs::manager::{JobManager, JobsConfig};
 use crate::jobs::{JobId, JobMeta, JobStore};
 use crate::net::{self, NetConfig};
-use crate::permissions::Permissions;
+use crate::permissions::{Permission, Permissions};
 use crate::protocol::{
     CONTROL_ALPN, Command, ErrorCode, MachineInfo, PAIR_ALPN, PairRejection, PairRequest,
     PairResponse, RemoteError, ReplayGuard, Response, SignedRequest, close_code, now_ms,
@@ -690,6 +690,23 @@ async fn decide(
         }
         Command::RunJob(spec) => {
             let jobs = inner.jobs()?;
+            if spec.admin {
+                if !controller.permissions.contains(Permission::Admin) {
+                    return Err(RemoteError::new(
+                        ErrorCode::PermissionDenied,
+                        format!(
+                            "jobs with administrator rights need the \"admin\" permission; on the machine, run `yonder-agent allow \"{}\" admin`",
+                            controller.name
+                        ),
+                    ));
+                }
+                if !jobs.offers_admin() {
+                    return Err(RemoteError::new(
+                        ErrorCode::Unsupported,
+                        "this machine doesn't run jobs with administrator rights (only the Windows service does)",
+                    ));
+                }
+            }
             if inner.paused() {
                 return Err(RemoteError::new(
                     ErrorCode::Paused,
