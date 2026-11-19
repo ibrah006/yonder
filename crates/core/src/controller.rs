@@ -6,7 +6,10 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use iroh::Endpoint;
-use iroh::endpoint::{ApplicationClose, Connection, ConnectionError, RecvStream, SendStream};
+use iroh::endpoint::{ApplicationClose, Connection, ConnectionError};
+#[cfg(unix)]
+use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use crate::Os;
 use crate::agent::{APPROVAL_TIMEOUT, clean_name};
@@ -47,15 +50,54 @@ pub struct ControllerConfig {
     pub name: Option<String>,
 }
 
+/// The sending half of a stream to a machine: direct, or through the app.
+pub type StreamSend = Box<dyn AsyncWrite + Send + Unpin>;
+/// The receiving half of a stream to a machine.
+pub type StreamRecv = Box<dyn AsyncRead + Send + Unpin>;
+
+/// Set to use this device's own connection even while the app hosts one.
+pub const DIRECT_ENV: &str = "YONDER_DIRECT";
+
 /// This device acting as a controller of paired machines.
+///
+/// One device has one key, so only one process should hold its connections: while the
+/// Yonder app is open it *hosts* them ([`Controller::host`]) on a socket in the state
+/// folder, and other processes (the CLI) open their streams through it. When nothing
+/// hosts, each process connects on its own.
 pub struct Controller {
     key: DeviceKey,
-    endpoint: Endpoint,
+    net: NetConfig,
+    /// Bound on first use, so a CLI going through the app never goes online itself.
+    endpoint: tokio::sync::OnceCell<Endpoint>,
     name: String,
     state_path: PathBuf,
     state: Mutex<ControllerState>,
     connections: tokio::sync::Mutex<HashMap<DeviceId, Connection>>,
+    /// Where the app hosts connections (macOS and Linux; Windows always connects directly).
+    #[cfg_attr(not(unix), allow(dead_code))]
+    host_socket: PathBuf,
+    /// This process is the host.
+    #[cfg_attr(not(unix), allow(dead_code))]
+    hosting: std::sync::atomic::AtomicBool,
+    /// While hosting: why a machine closed a connection, for the process whose stream
+    /// broke to ask.
+    #[cfg_attr(not(unix), allow(dead_code))]
+    closed: Mutex<HashMap<DeviceId, RemoteError>>,
 }
+
+/// First message on a hosted stream: which machine to reach.
+#[cfg(unix)]
+#[derive(Serialize, Deserialize)]
+struct HostOpen {
+    machine: DeviceId,
+    /// Not a new stream: asks why the last one to this machine broke.
+    #[serde(default)]
+    why: bool,
+}
+
+/// The host's answer before the stream carries the request itself.
+#[cfg(unix)]
+type HostReply = std::result::Result<(), RemoteError>;
 
 impl std::fmt::Debug for Controller {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -82,16 +124,39 @@ impl Controller {
             .clone()
             .or_else(|| (!state.device_name.is_empty()).then(|| state.device_name.clone()))
             .unwrap_or_else(default_device_name);
-        // Controllers only dial out; they accept no protocols.
-        let endpoint = net::bind(&key, Vec::new(), &config.net).await?;
         Ok(Controller {
             key,
-            endpoint,
+            net: config.net,
+            endpoint: tokio::sync::OnceCell::new(),
             name: clean_name(&name),
             state_path,
             state: Mutex::new(state),
             connections: tokio::sync::Mutex::new(HashMap::new()),
+            host_socket: config.state.host_socket(),
+            hosting: std::sync::atomic::AtomicBool::new(false),
+            closed: Mutex::new(HashMap::new()),
         })
+    }
+
+    /// This device's network endpoint, started on first use.
+    async fn endpoint(&self) -> Result<&Endpoint> {
+        // Controllers only dial out; they accept no protocols.
+        self.endpoint
+            .get_or_try_init(|| net::bind(&self.key, Vec::new(), &self.net))
+            .await
+    }
+
+    /// Whether this process has its own network connection (it doesn't while going
+    /// through the app).
+    pub fn is_online(&self) -> bool {
+        self.endpoint.get().is_some()
+    }
+
+    /// Reads the machine list again (another process may have paired or forgotten one).
+    pub fn reload(&self) -> Result<()> {
+        let state = ControllerState::load(&self.state_path)?;
+        *lock(&self.state) = state;
+        Ok(())
     }
 
     pub fn id(&self) -> DeviceId {
@@ -177,7 +242,9 @@ impl Controller {
         let machine_id = ticket.machine_id();
         let conn = tokio::time::timeout(
             CONNECT_TIMEOUT,
-            self.endpoint.connect(ticket.machine.clone(), PAIR_ALPN),
+            self.endpoint()
+                .await?
+                .connect(ticket.machine.clone(), PAIR_ALPN),
         )
         .await
         .map_err(|_| Error::Timeout("couldn't reach the machine"))?
@@ -243,10 +310,9 @@ impl Controller {
         command: Command,
         timeout: Duration,
     ) -> Result<Response> {
-        let conn = self.connection(machine).await?;
         let signed = SignedRequest::new(&self.key, machine.id, command);
         let result = tokio::time::timeout(timeout, async {
-            let (mut send, mut recv) = conn.open_bi().await.map_err(Error::network)?;
+            let (mut send, mut recv) = self.open_stream(machine).await?;
             write_message(&mut send, &signed).await?;
             read_message::<Response>(&mut recv).await
         })
@@ -257,10 +323,8 @@ impl Controller {
         match result {
             Ok(Response::Error(err)) => Err(Error::Remote(err)),
             Ok(response) => Ok(response),
-            Err(err) => {
-                self.connections.lock().await.remove(&machine.id);
-                Err(explain_close(&conn).unwrap_or(err))
-            }
+            Err(err @ Error::Remote(_)) => Err(err),
+            Err(err) => Err(self.failed(machine, err).await),
         }
     }
 
@@ -497,7 +561,6 @@ impl Controller {
         mut on_chunk: impl FnMut(u64, &[u8]),
         mut on_git_request: impl FnMut(GitCredentialRequest),
     ) -> Result<JobInfo> {
-        let conn = self.connection(machine).await?;
         let command = Command::JobLogs {
             id: id.clone(),
             from,
@@ -505,7 +568,7 @@ impl Controller {
         };
         let signed = SignedRequest::new(&self.key, machine.id, command);
         let result: Result<JobInfo> = async {
-            let (mut send, mut recv) = conn.open_bi().await.map_err(Error::network)?;
+            let (mut send, mut recv) = self.open_stream(machine).await?;
             write_message(&mut send, &signed).await?;
             loop {
                 match read_frame::<Response>(&mut recv).await? {
@@ -523,13 +586,11 @@ impl Controller {
             }
         }
         .await;
-        if result.is_err() {
-            self.connections.lock().await.remove(&machine.id);
-            if let Some(err) = explain_close(&conn) {
-                return Err(err);
-            }
+        match result {
+            Err(err @ Error::Remote(_)) => Err(err),
+            Err(err) => Err(self.failed(machine, err).await),
+            ok => ok,
         }
-        result
     }
 
     /// Starts a shell (`session: None`) or attaches to one, replaying output from byte
@@ -542,7 +603,6 @@ impl Controller {
         rows: u16,
         from: Option<u64>,
     ) -> Result<(TerminalInfo, TerminalWriter, TerminalReader)> {
-        let conn = self.connection(machine).await?;
         let command = Command::OpenTerminal {
             session,
             cols,
@@ -551,7 +611,7 @@ impl Controller {
         };
         let signed = SignedRequest::new(&self.key, machine.id, command);
         let opened = tokio::time::timeout(REQUEST_TIMEOUT, async {
-            let (mut send, mut recv) = conn.open_bi().await.map_err(Error::network)?;
+            let (mut send, mut recv) = self.open_stream(machine).await?;
             // Not finished: keystrokes follow on the same stream.
             write_frame(&mut send, &signed).await?;
             match read_frame::<Response>(&mut recv).await? {
@@ -569,10 +629,7 @@ impl Controller {
         match opened {
             Ok((info, send, recv)) => Ok((info, TerminalWriter(send), TerminalReader(recv))),
             Err(err @ Error::Remote(_)) => Err(err),
-            Err(err) => {
-                self.connections.lock().await.remove(&machine.id);
-                Err(explain_close(&conn).unwrap_or(err))
-            }
+            Err(err) => Err(self.failed(machine, err).await),
         }
     }
 
@@ -741,7 +798,183 @@ impl Controller {
     /// Closes all connections.
     pub async fn close(&self) {
         self.connections.lock().await.clear();
-        self.endpoint.close().await;
+        if let Some(endpoint) = self.endpoint.get() {
+            endpoint.close().await;
+        }
+    }
+
+    /// A new stream to `machine`: through the app when it hosts this device's
+    /// connections, otherwise over this process's own connection.
+    async fn open_stream(&self, machine: &PairedMachine) -> Result<(StreamSend, StreamRecv)> {
+        #[cfg(unix)]
+        if !self.hosting.load(std::sync::atomic::Ordering::Relaxed)
+            && std::env::var_os(DIRECT_ENV).is_none()
+            && let Some(stream) = self.hosted_stream(machine).await?
+        {
+            return Ok(stream);
+        }
+        let conn = self.connection(machine).await?;
+        match conn.open_bi().await {
+            Ok((send, recv)) => Ok((Box::new(send), Box::new(recv))),
+            Err(err) => Err(self.failed(machine, Error::network(err)).await),
+        }
+    }
+
+    /// A stream through the app, or `None` if no app is hosting.
+    #[cfg(unix)]
+    async fn hosted_stream(
+        &self,
+        machine: &PairedMachine,
+    ) -> Result<Option<(StreamSend, StreamRecv)>> {
+        let Ok(stream) = tokio::net::UnixStream::connect(&self.host_socket).await else {
+            return Ok(None);
+        };
+        let (mut recv, mut send) = stream.into_split();
+        let open = HostOpen {
+            machine: machine.id,
+            why: false,
+        };
+        write_frame(&mut send, &open).await?;
+        match read_frame::<HostReply>(&mut recv).await? {
+            Some(Ok(())) => Ok(Some((Box::new(send), Box::new(recv)))),
+            Some(Err(err)) => Err(Error::Remote(err)),
+            None => Err(Error::Protocol(
+                "the Yonder app closed the connection; try again".into(),
+            )),
+        }
+    }
+
+    /// After a stream failed: drop the connection and explain why it closed, if it did.
+    async fn failed(&self, machine: &PairedMachine, err: Error) -> Error {
+        if let Some(conn) = self.connections.lock().await.remove(&machine.id) {
+            return explain_close(&conn).unwrap_or(err);
+        }
+        #[cfg(unix)]
+        if !self.hosting.load(std::sync::atomic::Ordering::Relaxed)
+            && let Some(why) = self.hosted_why(machine).await
+        {
+            return why;
+        }
+        err
+    }
+
+    /// Asks the app why its connection to `machine` closed, if it knows.
+    #[cfg(unix)]
+    async fn hosted_why(&self, machine: &PairedMachine) -> Option<Error> {
+        let stream = tokio::net::UnixStream::connect(&self.host_socket)
+            .await
+            .ok()?;
+        let (mut recv, mut send) = stream.into_split();
+        let ask = HostOpen {
+            machine: machine.id,
+            why: true,
+        };
+        write_frame(&mut send, &ask).await.ok()?;
+        match read_frame::<HostReply>(&mut recv).await.ok()?? {
+            Err(err) => Some(Error::Remote(err)),
+            Ok(()) => None,
+        }
+    }
+
+    /// Hosts this device's connections for other processes (the CLI) until the returned
+    /// task is aborted. Fails if another process already hosts.
+    #[cfg(unix)]
+    pub fn host(self: &std::sync::Arc<Self>) -> Result<tokio::task::JoinHandle<()>> {
+        let path = &self.host_socket;
+        if std::os::unix::net::UnixStream::connect(path).is_ok() {
+            return Err(Error::Protocol(
+                "another Yonder app already hosts this device's connections".into(),
+            ));
+        }
+        // Left by a host that stopped without cleaning up.
+        let _ = std::fs::remove_file(path);
+        let listener = tokio::net::UnixListener::bind(path).map_err(|e| Error::io(path, e))?;
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| Error::io(path, e))?;
+        }
+        self.hosting
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let controller = self.clone();
+        Ok(tokio::spawn(async move {
+            while let Ok((stream, _)) = listener.accept().await {
+                let controller = controller.clone();
+                tokio::spawn(async move { controller.serve_hosted(stream).await });
+            }
+        }))
+    }
+
+    /// Stops hosting: removes the socket so other processes connect on their own.
+    #[cfg(unix)]
+    pub fn stop_hosting(&self, task: tokio::task::JoinHandle<()>) {
+        task.abort();
+        let _ = std::fs::remove_file(&self.host_socket);
+        self.hosting
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// One hosted stream: open the same to the machine, then pass bytes both ways.
+    #[cfg(unix)]
+    async fn serve_hosted(&self, stream: tokio::net::UnixStream) {
+        let (mut local_recv, mut local_send) = stream.into_split();
+        let Ok(Some(open)) = read_frame::<HostOpen>(&mut local_recv).await else {
+            return;
+        };
+        if open.why {
+            let reply: HostReply = match lock(&self.closed).remove(&open.machine) {
+                Some(err) => Err(err),
+                None => Ok(()),
+            };
+            let _ = write_frame(&mut local_send, &reply).await;
+            return;
+        }
+        let opened = async {
+            let mut machine = self.machines().into_iter().find(|m| m.id == open.machine);
+            if machine.is_none() {
+                // Paired by the CLI since this process loaded its list.
+                self.reload()?;
+                machine = self.machines().into_iter().find(|m| m.id == open.machine);
+            }
+            let machine = machine.ok_or_else(|| Error::UnknownMachine(open.machine.to_string()))?;
+            let conn = self.connection(&machine).await?;
+            match conn.open_bi().await {
+                Ok((send, recv)) => Ok((send, recv, conn)),
+                Err(err) => Err(self.failed(&machine, Error::network(err)).await),
+            }
+        }
+        .await;
+        let (mut send, mut recv, conn) = match opened {
+            Ok(pair) => pair,
+            Err(err) => {
+                let reply: HostReply = Err(match err {
+                    Error::Remote(remote) => remote,
+                    other => RemoteError::new(ErrorCode::Internal, other.to_string()),
+                });
+                let _ = write_frame(&mut local_send, &reply).await;
+                return;
+            }
+        };
+        if write_frame(&mut local_send, &HostReply::Ok(()))
+            .await
+            .is_err()
+        {
+            return;
+        }
+        let up = async {
+            let _ = tokio::io::copy(&mut local_recv, &mut send).await;
+            let _ = send.shutdown().await;
+        };
+        let down = async {
+            let _ = tokio::io::copy(&mut recv, &mut local_send).await;
+            // Recorded before the other process sees the stream end and asks why.
+            if let Some(Error::Remote(err)) = explain_close(&conn) {
+                lock(&self.closed).insert(open.machine, err);
+                self.connections.lock().await.remove(&open.machine);
+            }
+            let _ = local_send.shutdown().await;
+        };
+        tokio::join!(up, down);
     }
 
     async fn connection(&self, machine: &PairedMachine) -> Result<Connection> {
@@ -753,7 +986,9 @@ impl Controller {
         }
         let conn = tokio::time::timeout(
             CONNECT_TIMEOUT,
-            self.endpoint.connect(machine.addr.clone(), CONTROL_ALPN),
+            self.endpoint()
+                .await?
+                .connect(machine.addr.clone(), CONTROL_ALPN),
         )
         .await
         .map_err(|_| Error::Timeout("couldn't reach the machine; is it on and online?"))?
@@ -767,7 +1002,7 @@ impl Controller {
 /// leaves the shell running on the machine.
 ///
 /// [`detach`]: TerminalWriter::detach
-pub struct TerminalWriter(SendStream);
+pub struct TerminalWriter(StreamSend);
 
 impl std::fmt::Debug for TerminalWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -786,7 +1021,9 @@ impl TerminalWriter {
 
     /// Detaches; the shell keeps running.
     pub fn detach(mut self) {
-        let _ = self.0.finish();
+        tokio::spawn(async move {
+            let _ = self.0.shutdown().await;
+        });
     }
 }
 
@@ -800,7 +1037,7 @@ pub enum TerminalEvent {
 }
 
 /// Receives a terminal's output.
-pub struct TerminalReader(RecvStream);
+pub struct TerminalReader(StreamRecv);
 
 impl std::fmt::Debug for TerminalReader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
