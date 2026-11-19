@@ -10,6 +10,7 @@ import 'ui/format.dart';
 import 'ui/jobs.dart';
 import 'ui/notify.dart';
 import 'ui/pair.dart';
+import 'ui/prepare.dart';
 import 'ui/terminal.dart';
 
 Future<void> main() async {
@@ -299,7 +300,29 @@ class MachineView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(machine.name, style: text.headlineSmall),
+                Row(
+                  children: [
+                    Expanded(child: Text(machine.name, style: text.headlineSmall)),
+                    Builder(
+                      builder: (context) => OutlinedButton.icon(
+                        onPressed: () async {
+                          final job = await showDialog<Job>(
+                            context: context,
+                            builder: (_) => PrepareDialog(app: app, machine: machine),
+                          );
+                          if (job == null || !context.mounted) return;
+                          // Follow it in the Jobs tab.
+                          DefaultTabController.of(context).animateTo(0);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Preparing ${machine.name}: see the Jobs tab.')),
+                          );
+                        },
+                        icon: const Icon(Icons.build_outlined, size: 18),
+                        label: const Text('Prepare…'),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
                   [
