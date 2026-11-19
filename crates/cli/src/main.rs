@@ -9,6 +9,7 @@ mod jobs;
 mod secrets;
 mod setup;
 mod shell;
+mod wake;
 mod workspace;
 
 use std::path::PathBuf;
@@ -185,6 +186,14 @@ enum Cmd {
         #[arg(long)]
         local: Option<u16>,
     },
+    /// Wake a sleeping machine (Wake-on-LAN), from this computer and from your other
+    /// machines that are awake on its network, then wait until it answers.
+    Wake {
+        machine: String,
+        /// Send the signal and return without waiting.
+        #[arg(long)]
+        no_wait: bool,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
@@ -347,6 +356,7 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             target,
             local,
         } => forward::run(controller, &machine, &target, local).await?,
+        Cmd::Wake { machine, no_wait } => wake::run(controller, &machine, !no_wait).await?,
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
@@ -485,6 +495,12 @@ async fn status(controller: &Controller) -> Result<()> {
             Ok(Err(yonder_core::Error::Remote(err))) => {
                 ("refused".to_string(), "-".to_string(), err.message)
             }
+            // It answered, in a form this version doesn't read.
+            Ok(Err(yonder_core::Error::Protocol(_))) => (
+                "mismatch".to_string(),
+                "-".to_string(),
+                "the machine's agent and this yonder are different versions; update the agent".to_string(),
+            ),
             _ => ("offline".to_string(), "-".to_string(), String::new()),
         };
         println!(
