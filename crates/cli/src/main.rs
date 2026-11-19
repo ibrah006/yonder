@@ -406,10 +406,11 @@ async fn status(controller: &Controller) -> Result<()> {
     let results = futures_util::future::join_all(checks).await;
     let width = name_width(machines.iter().map(|m| m.name.as_str()));
     println!(
-        "{:width$}  {:7}  {:8}  {:6}  JOBS",
-        "NAME", "OS", "STATE", "PING"
+        "{:width$}  {:7}  {:8}  {:7}  {:4}  {:13}  {:10}  JOBS",
+        "NAME", "OS", "STATE", "PING", "CPU", "MEMORY", "DISK FREE"
     );
     for (machine, result) in machines.iter().zip(results) {
+        let mut load = (String::from("-"), String::from("-"), String::from("-"));
         let (state, ping, jobs) = match result {
             Ok(Ok((rtt, info, jobs))) => {
                 let running = jobs
@@ -420,8 +421,28 @@ async fn status(controller: &Controller) -> Result<()> {
                     .iter()
                     .filter(|j| j.status.state == yonder_core::jobs::JobState::Queued)
                     .count();
+                if let Some(s) = &info.stats {
+                    let gb = |b: u64| b as f64 / 1e9;
+                    load = (
+                        format!("{}%", s.cpu_percent),
+                        format!("{:.1}/{:.0} GB", gb(s.memory_used), gb(s.memory_total)),
+                        format!("{:.0} GB", gb(s.disk_free)),
+                    );
+                }
+                let restart = info
+                    .stats
+                    .as_ref()
+                    .and_then(|s| s.pending_restart)
+                    .unwrap_or(false);
                 (
-                    if info.paused { "paused" } else { "online" }.to_string(),
+                    if info.paused {
+                        "paused"
+                    } else if restart {
+                        "restart"
+                    } else {
+                        "online"
+                    }
+                    .to_string(),
                     format!("{} ms", rtt.as_millis()),
                     format!("{running} running, {queued} queued"),
                 )
@@ -432,14 +453,19 @@ async fn status(controller: &Controller) -> Result<()> {
             _ => ("offline".to_string(), "-".to_string(), String::new()),
         };
         println!(
-            "{:width$}  {:7}  {:8}  {:6}  {}",
+            "{:width$}  {:7}  {:8}  {:7}  {:4}  {:13}  {:10}  {}",
             machine.name,
             machine.os.to_string(),
             state,
             ping,
+            load.0,
+            load.1,
+            load.2,
             jobs
         );
     }
+    println!();
+    println!("\"restart\": updates on the machine wait for a restart.");
     Ok(())
 }
 
