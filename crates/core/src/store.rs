@@ -262,6 +262,9 @@ pub struct PairedMachine {
     pub permissions: Permissions,
     /// Unix seconds.
     pub paired_at: u64,
+    /// Its network card addresses, as it last said, for waking it.
+    #[serde(default)]
+    pub macs: Vec<String>,
 }
 
 /// Controller state: the machines this device can use.
@@ -342,6 +345,7 @@ mod tests {
             addr: EndpointAddr::new(id),
             permissions: Permissions::for_new_controller(),
             paired_at: 0,
+            macs: Vec::new(),
         }
     }
 
