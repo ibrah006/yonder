@@ -12,7 +12,7 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 use iroh::Signature;
-use iroh::endpoint::{ReadExactError, RecvStream, SendStream};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::Os;
@@ -582,24 +582,34 @@ impl fmt::Display for PairRejection {
 // stream can carry several messages (a log stream) as well as just one.
 
 /// Writes one message without finishing the stream.
-pub async fn write_frame<T: Serialize>(send: &mut SendStream, message: &T) -> Result<()> {
+pub async fn write_frame<T: Serialize>(
+    send: &mut (impl AsyncWrite + Unpin + ?Sized),
+    message: &T,
+) -> Result<()> {
     let bytes = postcard::to_stdvec(message).expect("messages are always serializable");
     if bytes.len() > MAX_MESSAGE_BYTES {
         return Err(Error::Protocol("message too large".into()));
     }
-    let len = (bytes.len() as u32).to_le_bytes();
-    send.write_all(&len).await.map_err(Error::network)?;
-    send.write_all(&bytes).await.map_err(Error::network)?;
+    let mut frame = Vec::with_capacity(4 + bytes.len());
+    frame.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+    frame.extend_from_slice(&bytes);
+    send.write_all(&frame).await.map_err(Error::network)?;
+    send.flush().await.map_err(Error::network)?;
     Ok(())
 }
 
 /// Reads one message. `None` means the other side finished the stream cleanly.
-pub async fn read_frame<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<Option<T>> {
+pub async fn read_frame<T: DeserializeOwned>(
+    recv: &mut (impl AsyncRead + Unpin + ?Sized),
+) -> Result<Option<T>> {
     let mut len = [0u8; 4];
-    match recv.read_exact(&mut len).await {
-        Ok(()) => {}
-        Err(ReadExactError::FinishedEarly(0)) => return Ok(None),
-        Err(err) => return Err(Error::network(err)),
+    let mut got = 0;
+    while got < len.len() {
+        match recv.read(&mut len[got..]).await.map_err(Error::network)? {
+            0 if got == 0 => return Ok(None),
+            0 => return Err(Error::Protocol("the stream ended mid-message".into())),
+            n => got += n,
+        }
     }
     let len = u32::from_le_bytes(len) as usize;
     if len > MAX_MESSAGE_BYTES {
@@ -615,14 +625,19 @@ pub async fn read_frame<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<Op
 }
 
 /// Writes one message and finishes the stream.
-pub async fn write_message<T: Serialize>(send: &mut SendStream, message: &T) -> Result<()> {
+pub async fn write_message<T: Serialize>(
+    send: &mut (impl AsyncWrite + Unpin + ?Sized),
+    message: &T,
+) -> Result<()> {
     write_frame(send, message).await?;
-    send.finish().map_err(Error::network)?;
+    send.shutdown().await.map_err(Error::network)?;
     Ok(())
 }
 
 /// Reads exactly one message.
-pub async fn read_message<T: DeserializeOwned>(recv: &mut RecvStream) -> Result<T> {
+pub async fn read_message<T: DeserializeOwned>(
+    recv: &mut (impl AsyncRead + Unpin + ?Sized),
+) -> Result<T> {
     read_frame(recv)
         .await?
         .ok_or_else(|| Error::Protocol("the stream ended before a message arrived".into()))
