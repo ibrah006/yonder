@@ -3,7 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/simple.dart';
+import 'api/yonder.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -55,7 +55,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
   @override
   Future<void> executeRustInitializers() async {
-    await api.crateApiSimpleInitApp();
+    await api.crateApiYonderInitApp();
   }
 
   @override
@@ -66,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1918914929;
+  int get rustContentHash => 785375710;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -78,9 +78,131 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  String crateApiSimpleGreet({required String name});
+  Future<void> crateApiYonderShellDetach({required Shell that});
 
-  Future<void> crateApiSimpleInitApp();
+  String crateApiYonderShellId({required Shell that});
+
+  Future<void> crateApiYonderShellResize({
+    required Shell that,
+    required int cols,
+    required int rows,
+  });
+
+  Future<void> crateApiYonderShellSend({
+    required Shell that,
+    required List<int> data,
+  });
+
+  Future<Job> crateApiYonderYonderAppCancelJob({
+    required YonderApp that,
+    required String machineId,
+    required String jobId,
+  });
+
+  Future<Removed> crateApiYonderYonderAppClean({
+    required YonderApp that,
+    required String machineId,
+    required String what,
+  });
+
+  String crateApiYonderYonderAppDeviceName({required YonderApp that});
+
+  Future<List<Device>> crateApiYonderYonderAppDevices({
+    required YonderApp that,
+    required String machineId,
+  });
+
+  String crateApiYonderYonderAppFingerprint({required YonderApp that});
+
+  Stream<LogEvent> crateApiYonderYonderAppFollowJob({
+    required YonderApp that,
+    required String machineId,
+    required String jobId,
+    required BigInt from,
+  });
+
+  Future<Footprint> crateApiYonderYonderAppFootprint({
+    required YonderApp that,
+    required String machineId,
+  });
+
+  Future<bool> crateApiYonderYonderAppIsHosting({required YonderApp that});
+
+  Future<List<Job>> crateApiYonderYonderAppJobs({
+    required YonderApp that,
+    required String machineId,
+  });
+
+  List<Machine> crateApiYonderYonderAppMachines({required YonderApp that});
+
+  Future<YonderApp> crateApiYonderYonderAppOpen({String? stateDir});
+
+  Stream<ShellEvent> crateApiYonderYonderAppOpenShell({
+    required YonderApp that,
+    required String machineId,
+    String? session,
+    required int cols,
+    required int rows,
+    BigInt? from,
+  });
+
+  Future<Machine> crateApiYonderYonderAppPair({
+    required YonderApp that,
+    required String ticket,
+  });
+
+  Future<Removed> crateApiYonderYonderAppRevoke({
+    required YonderApp that,
+    required String machineId,
+    required String deviceId,
+    required bool keep,
+  });
+
+  Future<Job> crateApiYonderYonderAppRunJob({
+    required YonderApp that,
+    required String machineId,
+    required String command,
+    String? cwd,
+    String? label,
+  });
+
+  Future<void> crateApiYonderYonderAppSetCleanup({
+    required YonderApp that,
+    required String machineId,
+    int? afterDays,
+  });
+
+  Future<List<ShellInfo>> crateApiYonderYonderAppShells({
+    required YonderApp that,
+    required String machineId,
+  });
+
+  Future<MachineStatus> crateApiYonderYonderAppStatus({
+    required YonderApp that,
+    required String machineId,
+  });
+
+  Future<Removed> crateApiYonderYonderAppUnpair({
+    required YonderApp that,
+    required String machineId,
+    required bool keep,
+  });
+
+  Future<void> crateApiYonderInitApp();
+
+  RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_Shell;
+
+  RustArcDecrementStrongCountFnType get rust_arc_decrement_strong_count_Shell;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_ShellPtr;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_YonderApp;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_YonderApp;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_YonderAppPtr;
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -92,30 +214,866 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  String crateApiSimpleGreet({required String name}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<void> crateApiYonderShellDetach({required Shell that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(name, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_String,
-          decodeErrorData: null,
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta: kCrateApiSimpleGreetConstMeta,
-        argValues: [name],
+        constMeta: kCrateApiYonderShellDetachConstMeta,
+        argValues: [that],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleGreetConstMeta =>
-      const TaskConstMeta(debugName: "greet", argNames: ["name"]);
+  TaskConstMeta get kCrateApiYonderShellDetachConstMeta =>
+      const TaskConstMeta(debugName: "Shell_detach", argNames: ["that"]);
 
   @override
-  Future<void> crateApiSimpleInitApp() {
+  String crateApiYonderShellId({required Shell that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiYonderShellIdConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderShellIdConstMeta =>
+      const TaskConstMeta(debugName: "Shell_id", argNames: ["that"]);
+
+  @override
+  Future<void> crateApiYonderShellResize({
+    required Shell that,
+    required int cols,
+    required int rows,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+            that,
+            serializer,
+          );
+          sse_encode_u_16(cols, serializer);
+          sse_encode_u_16(rows, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 3,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderShellResizeConstMeta,
+        argValues: [that, cols, rows],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderShellResizeConstMeta => const TaskConstMeta(
+    debugName: "Shell_resize",
+    argNames: ["that", "cols", "rows"],
+  );
+
+  @override
+  Future<void> crateApiYonderShellSend({
+    required Shell that,
+    required List<int> data,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+            that,
+            serializer,
+          );
+          sse_encode_list_prim_u_8_loose(data, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderShellSendConstMeta,
+        argValues: [that, data],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderShellSendConstMeta =>
+      const TaskConstMeta(debugName: "Shell_send", argNames: ["that", "data"]);
+
+  @override
+  Future<Job> crateApiYonderYonderAppCancelJob({
+    required YonderApp that,
+    required String machineId,
+    required String jobId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_String(jobId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 5,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_job,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppCancelJobConstMeta,
+        argValues: [that, machineId, jobId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppCancelJobConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_cancel_job",
+        argNames: ["that", "machineId", "jobId"],
+      );
+
+  @override
+  Future<Removed> crateApiYonderYonderAppClean({
+    required YonderApp that,
+    required String machineId,
+    required String what,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_String(what, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 6,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_removed,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppCleanConstMeta,
+        argValues: [that, machineId, what],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppCleanConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_clean",
+        argNames: ["that", "machineId", "what"],
+      );
+
+  @override
+  String crateApiYonderYonderAppDeviceName({required YonderApp that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiYonderYonderAppDeviceNameConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppDeviceNameConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_device_name",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<List<Device>> crateApiYonderYonderAppDevices({
+    required YonderApp that,
+    required String machineId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_device,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppDevicesConstMeta,
+        argValues: [that, machineId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppDevicesConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_devices",
+        argNames: ["that", "machineId"],
+      );
+
+  @override
+  String crateApiYonderYonderAppFingerprint({required YonderApp that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiYonderYonderAppFingerprintConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppFingerprintConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_fingerprint",
+        argNames: ["that"],
+      );
+
+  @override
+  Stream<LogEvent> crateApiYonderYonderAppFollowJob({
+    required YonderApp that,
+    required String machineId,
+    required String jobId,
+    required BigInt from,
+  }) {
+    final sink = RustStreamSink<LogEvent>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+              that,
+              serializer,
+            );
+            sse_encode_String(machineId, serializer);
+            sse_encode_String(jobId, serializer);
+            sse_encode_u_64(from, serializer);
+            sse_encode_StreamSink_log_event_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 10,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData: sse_decode_unit,
+            decodeErrorData: sse_decode_AnyhowException,
+          ),
+          constMeta: kCrateApiYonderYonderAppFollowJobConstMeta,
+          argValues: [that, machineId, jobId, from, sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppFollowJobConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_follow_job",
+        argNames: ["that", "machineId", "jobId", "from", "sink"],
+      );
+
+  @override
+  Future<Footprint> crateApiYonderYonderAppFootprint({
+    required YonderApp that,
+    required String machineId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_footprint,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppFootprintConstMeta,
+        argValues: [that, machineId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppFootprintConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_footprint",
+        argNames: ["that", "machineId"],
+      );
+
+  @override
+  Future<bool> crateApiYonderYonderAppIsHosting({required YonderApp that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiYonderYonderAppIsHostingConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppIsHostingConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_is_hosting",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<List<Job>> crateApiYonderYonderAppJobs({
+    required YonderApp that,
+    required String machineId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_job,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppJobsConstMeta,
+        argValues: [that, machineId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppJobsConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_jobs",
+        argNames: ["that", "machineId"],
+      );
+
+  @override
+  List<Machine> crateApiYonderYonderAppMachines({required YonderApp that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_machine,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiYonderYonderAppMachinesConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppMachinesConstMeta =>
+      const TaskConstMeta(debugName: "YonderApp_machines", argNames: ["that"]);
+
+  @override
+  Future<YonderApp> crateApiYonderYonderAppOpen({String? stateDir}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_opt_String(stateDir, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppOpenConstMeta,
+        argValues: [stateDir],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppOpenConstMeta =>
+      const TaskConstMeta(debugName: "YonderApp_open", argNames: ["stateDir"]);
+
+  @override
+  Stream<ShellEvent> crateApiYonderYonderAppOpenShell({
+    required YonderApp that,
+    required String machineId,
+    String? session,
+    required int cols,
+    required int rows,
+    BigInt? from,
+  }) {
+    final sink = RustStreamSink<ShellEvent>();
+    unawaited(
+      handler.executeNormal(
+        NormalTask(
+          callFfi: (port_) {
+            final serializer = SseSerializer(generalizedFrbRustBinding);
+            sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+              that,
+              serializer,
+            );
+            sse_encode_String(machineId, serializer);
+            sse_encode_opt_String(session, serializer);
+            sse_encode_u_16(cols, serializer);
+            sse_encode_u_16(rows, serializer);
+            sse_encode_opt_box_autoadd_u_64(from, serializer);
+            sse_encode_StreamSink_shell_event_Sse(sink, serializer);
+            pdeCallFfi(
+              generalizedFrbRustBinding,
+              serializer,
+              funcId: 16,
+              port: port_,
+            );
+          },
+          codec: SseCodec(
+            decodeSuccessData:
+                sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell,
+            decodeErrorData: sse_decode_AnyhowException,
+          ),
+          constMeta: kCrateApiYonderYonderAppOpenShellConstMeta,
+          argValues: [that, machineId, session, cols, rows, from, sink],
+          apiImpl: this,
+        ),
+      ),
+    );
+    return sink.stream;
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppOpenShellConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_open_shell",
+        argNames: [
+          "that",
+          "machineId",
+          "session",
+          "cols",
+          "rows",
+          "from",
+          "sink",
+        ],
+      );
+
+  @override
+  Future<Machine> crateApiYonderYonderAppPair({
+    required YonderApp that,
+    required String ticket,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(ticket, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_machine,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppPairConstMeta,
+        argValues: [that, ticket],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppPairConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_pair",
+        argNames: ["that", "ticket"],
+      );
+
+  @override
+  Future<Removed> crateApiYonderYonderAppRevoke({
+    required YonderApp that,
+    required String machineId,
+    required String deviceId,
+    required bool keep,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_String(deviceId, serializer);
+          sse_encode_bool(keep, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_removed,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppRevokeConstMeta,
+        argValues: [that, machineId, deviceId, keep],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppRevokeConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_revoke",
+        argNames: ["that", "machineId", "deviceId", "keep"],
+      );
+
+  @override
+  Future<Job> crateApiYonderYonderAppRunJob({
+    required YonderApp that,
+    required String machineId,
+    required String command,
+    String? cwd,
+    String? label,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_String(command, serializer);
+          sse_encode_opt_String(cwd, serializer);
+          sse_encode_opt_String(label, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_job,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppRunJobConstMeta,
+        argValues: [that, machineId, command, cwd, label],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppRunJobConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_run_job",
+        argNames: ["that", "machineId", "command", "cwd", "label"],
+      );
+
+  @override
+  Future<void> crateApiYonderYonderAppSetCleanup({
+    required YonderApp that,
+    required String machineId,
+    int? afterDays,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_opt_box_autoadd_u_32(afterDays, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppSetCleanupConstMeta,
+        argValues: [that, machineId, afterDays],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppSetCleanupConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_set_cleanup",
+        argNames: ["that", "machineId", "afterDays"],
+      );
+
+  @override
+  Future<List<ShellInfo>> crateApiYonderYonderAppShells({
+    required YonderApp that,
+    required String machineId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 21,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_shell_info,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppShellsConstMeta,
+        argValues: [that, machineId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppShellsConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_shells",
+        argNames: ["that", "machineId"],
+      );
+
+  @override
+  Future<MachineStatus> crateApiYonderYonderAppStatus({
+    required YonderApp that,
+    required String machineId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 22,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_machine_status,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppStatusConstMeta,
+        argValues: [that, machineId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_status",
+        argNames: ["that", "machineId"],
+      );
+
+  @override
+  Future<Removed> crateApiYonderYonderAppUnpair({
+    required YonderApp that,
+    required String machineId,
+    required bool keep,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+            that,
+            serializer,
+          );
+          sse_encode_String(machineId, serializer);
+          sse_encode_bool(keep, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 23,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_removed,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiYonderYonderAppUnpairConstMeta,
+        argValues: [that, machineId, keep],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiYonderYonderAppUnpairConstMeta =>
+      const TaskConstMeta(
+        debugName: "YonderApp_unpair",
+        argNames: ["that", "machineId", "keep"],
+      );
+
+  @override
+  Future<void> crateApiYonderInitApp() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -123,7 +1081,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 24,
             port: port_,
           );
         },
@@ -131,15 +1089,105 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiSimpleInitAppConstMeta,
+        constMeta: kCrateApiYonderInitAppConstMeta,
         argValues: [],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleInitAppConstMeta =>
+  TaskConstMeta get kCrateApiYonderInitAppConstMeta =>
       const TaskConstMeta(debugName: "init_app", argNames: []);
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_Shell => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_Shell => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_YonderApp => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_YonderApp => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp;
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return AnyhowException(raw as String);
+  }
+
+  @protected
+  Shell
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ShellImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  YonderApp
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return YonderAppImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  Shell
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ShellImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  YonderApp
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return YonderAppImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  Shell
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ShellImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  YonderApp
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return YonderAppImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  RustStreamSink<LogEvent> dco_decode_StreamSink_log_event_Sse(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
+
+  @protected
+  RustStreamSink<ShellEvent> dco_decode_StreamSink_shell_event_Sse(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError();
+  }
 
   @protected
   String dco_decode_String(dynamic raw) {
@@ -148,9 +1196,323 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
+  int dco_decode_box_autoadd_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  Job dco_decode_box_autoadd_job(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_job(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_u_64(raw);
+  }
+
+  @protected
+  Device dco_decode_device(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return Device(
+      id: dco_decode_String(arr[0]),
+      shortId: dco_decode_String(arr[1]),
+      name: dco_decode_String(arr[2]),
+      permissions: dco_decode_list_String(arr[3]),
+      pairedAt: dco_decode_u_64(arr[4]),
+      isThisDevice: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  Footprint dco_decode_footprint(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return Footprint(
+      secrets: dco_decode_list_secret(arr[0]),
+      projects: dco_decode_list_project_copy(arr[1]),
+      jobs: dco_decode_u_32(arr[2]),
+      unfinishedJobs: dco_decode_u_32(arr[3]),
+      jobBytes: dco_decode_u_64(arr[4]),
+      shells: dco_decode_list_shell_info(arr[5]),
+      cleanupAfterDays: dco_decode_opt_box_autoadd_u_32(arr[6]),
+      diskEncryption: dco_decode_String(arr[7]),
+    );
+  }
+
+  @protected
+  int dco_decode_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  Job dco_decode_job(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
+    return Job(
+      id: dco_decode_String(arr[0]),
+      command: dco_decode_String(arr[1]),
+      label: dco_decode_opt_String(arr[2]),
+      cwd: dco_decode_opt_String(arr[3]),
+      startedBy: dco_decode_String(arr[4]),
+      state: dco_decode_String(arr[5]),
+      exitCode: dco_decode_opt_box_autoadd_i_32(arr[6]),
+      message: dco_decode_opt_String(arr[7]),
+      createdAtMs: dco_decode_u_64(arr[8]),
+      startedAtMs: dco_decode_opt_box_autoadd_u_64(arr[9]),
+      finishedAtMs: dco_decode_opt_box_autoadd_u_64(arr[10]),
+      logBytes: dco_decode_u_64(arr[11]),
+    );
+  }
+
+  @protected
+  List<String> dco_decode_list_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<Device> dco_decode_list_device(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_device).toList();
+  }
+
+  @protected
+  List<Job> dco_decode_list_job(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_job).toList();
+  }
+
+  @protected
+  List<Machine> dco_decode_list_machine(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_machine).toList();
+  }
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<int>;
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<ProjectCopy> dco_decode_list_project_copy(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_project_copy).toList();
+  }
+
+  @protected
+  List<Secret> dco_decode_list_secret(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_secret).toList();
+  }
+
+  @protected
+  List<ShellInfo> dco_decode_list_shell_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_shell_info).toList();
+  }
+
+  @protected
+  LogEvent dco_decode_log_event(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return LogEvent_Output(
+          offset: dco_decode_u_64(raw[1]),
+          data: dco_decode_list_prim_u_8_strict(raw[2]),
+        );
+      case 1:
+        return LogEvent_Finished(job: dco_decode_box_autoadd_job(raw[1]));
+      case 2:
+        return LogEvent_LentGitLogin(
+          host: dco_decode_String(raw[1]),
+          lent: dco_decode_bool(raw[2]),
+        );
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
+  Machine dco_decode_machine(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return Machine(
+      id: dco_decode_String(arr[0]),
+      shortId: dco_decode_String(arr[1]),
+      name: dco_decode_String(arr[2]),
+      os: dco_decode_String(arr[3]),
+      permissions: dco_decode_list_String(arr[4]),
+      pairedAt: dco_decode_u_64(arr[5]),
+    );
+  }
+
+  @protected
+  MachineStatus dco_decode_machine_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return MachineStatus(
+      name: dco_decode_String(arr[0]),
+      agentVersion: dco_decode_String(arr[1]),
+      paused: dco_decode_bool(arr[2]),
+      runningJobs: dco_decode_u_32(arr[3]),
+      queuedJobs: dco_decode_u_32(arr[4]),
+    );
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_i_32(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
+  }
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  ProjectCopy dco_decode_project_copy(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ProjectCopy(
+      id: dco_decode_String(arr[0]),
+      path: dco_decode_String(arr[1]),
+      files: dco_decode_u_64(arr[2]),
+      bytes: dco_decode_u_64(arr[3]),
+      lastSyncedMs: dco_decode_opt_box_autoadd_u_64(arr[4]),
+    );
+  }
+
+  @protected
+  Removed dco_decode_removed(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return Removed(
+      secrets: dco_decode_u_32(arr[0]),
+      projects: dco_decode_u_32(arr[1]),
+      jobs: dco_decode_u_32(arr[2]),
+      shells: dco_decode_u_32(arr[3]),
+      bytes: dco_decode_u_64(arr[4]),
+      kept: dco_decode_list_String(arr[5]),
+    );
+  }
+
+  @protected
+  Secret dco_decode_secret(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return Secret(
+      name: dco_decode_String(arr[0]),
+      size: dco_decode_u_64(arr[1]),
+      createdAtMs: dco_decode_u_64(arr[2]),
+      expiresAtMs: dco_decode_opt_box_autoadd_u_64(arr[3]),
+      lastUsedMs: dco_decode_opt_box_autoadd_u_64(arr[4]),
+      note: dco_decode_opt_String(arr[5]),
+    );
+  }
+
+  @protected
+  ShellEvent dco_decode_shell_event(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    switch (raw[0]) {
+      case 0:
+        return ShellEvent_Output(
+          offset: dco_decode_u_64(raw[1]),
+          data: dco_decode_list_prim_u_8_strict(raw[2]),
+        );
+      case 1:
+        return ShellEvent_Exited(code: dco_decode_opt_box_autoadd_u_32(raw[1]));
+      case 2:
+        return ShellEvent_Disconnected(message: dco_decode_String(raw[1]));
+      default:
+        throw Exception("unreachable");
+    }
+  }
+
+  @protected
+  ShellInfo dco_decode_shell_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ShellInfo(
+      id: dco_decode_String(arr[0]),
+      startedBy: dco_decode_String(arr[1]),
+      createdAtMs: dco_decode_u_64(arr[2]),
+      exited: dco_decode_bool(arr[3]),
+      attached: dco_decode_u_32(arr[4]),
+    );
+  }
+
+  @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -166,6 +1528,107 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BigInt dco_decode_usize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
+  }
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_String(deserializer);
+    return AnyhowException(inner);
+  }
+
+  @protected
+  Shell
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return ShellImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  YonderApp
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return YonderAppImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  Shell
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return ShellImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  YonderApp
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return YonderAppImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  Shell
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return ShellImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  YonderApp
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return YonderAppImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  RustStreamSink<LogEvent> sse_decode_StreamSink_log_event_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
+  RustStreamSink<ShellEvent> sse_decode_StreamSink_shell_event_Sse(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    throw UnimplementedError('Unreachable ()');
+  }
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_prim_u_8_strict(deserializer);
@@ -173,10 +1636,423 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  int sse_decode_box_autoadd_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_i_32(deserializer));
+  }
+
+  @protected
+  Job sse_decode_box_autoadd_job(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_job(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_32(deserializer));
+  }
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_64(deserializer));
+  }
+
+  @protected
+  Device sse_decode_device(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_shortId = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_permissions = sse_decode_list_String(deserializer);
+    var var_pairedAt = sse_decode_u_64(deserializer);
+    var var_isThisDevice = sse_decode_bool(deserializer);
+    return Device(
+      id: var_id,
+      shortId: var_shortId,
+      name: var_name,
+      permissions: var_permissions,
+      pairedAt: var_pairedAt,
+      isThisDevice: var_isThisDevice,
+    );
+  }
+
+  @protected
+  Footprint sse_decode_footprint(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_secrets = sse_decode_list_secret(deserializer);
+    var var_projects = sse_decode_list_project_copy(deserializer);
+    var var_jobs = sse_decode_u_32(deserializer);
+    var var_unfinishedJobs = sse_decode_u_32(deserializer);
+    var var_jobBytes = sse_decode_u_64(deserializer);
+    var var_shells = sse_decode_list_shell_info(deserializer);
+    var var_cleanupAfterDays = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_diskEncryption = sse_decode_String(deserializer);
+    return Footprint(
+      secrets: var_secrets,
+      projects: var_projects,
+      jobs: var_jobs,
+      unfinishedJobs: var_unfinishedJobs,
+      jobBytes: var_jobBytes,
+      shells: var_shells,
+      cleanupAfterDays: var_cleanupAfterDays,
+      diskEncryption: var_diskEncryption,
+    );
+  }
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
+
+  @protected
+  Job sse_decode_job(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_command = sse_decode_String(deserializer);
+    var var_label = sse_decode_opt_String(deserializer);
+    var var_cwd = sse_decode_opt_String(deserializer);
+    var var_startedBy = sse_decode_String(deserializer);
+    var var_state = sse_decode_String(deserializer);
+    var var_exitCode = sse_decode_opt_box_autoadd_i_32(deserializer);
+    var var_message = sse_decode_opt_String(deserializer);
+    var var_createdAtMs = sse_decode_u_64(deserializer);
+    var var_startedAtMs = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_finishedAtMs = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_logBytes = sse_decode_u_64(deserializer);
+    return Job(
+      id: var_id,
+      command: var_command,
+      label: var_label,
+      cwd: var_cwd,
+      startedBy: var_startedBy,
+      state: var_state,
+      exitCode: var_exitCode,
+      message: var_message,
+      createdAtMs: var_createdAtMs,
+      startedAtMs: var_startedAtMs,
+      finishedAtMs: var_finishedAtMs,
+      logBytes: var_logBytes,
+    );
+  }
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <String>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Device> sse_decode_list_device(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Device>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_device(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Job> sse_decode_list_job(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Job>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_job(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Machine> sse_decode_list_machine(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Machine>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_machine(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<ProjectCopy> sse_decode_list_project_copy(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ProjectCopy>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_project_copy(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Secret> sse_decode_list_secret(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Secret>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_secret(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ShellInfo> sse_decode_list_shell_info(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ShellInfo>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_shell_info(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  LogEvent sse_decode_log_event(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_offset = sse_decode_u_64(deserializer);
+        var var_data = sse_decode_list_prim_u_8_strict(deserializer);
+        return LogEvent_Output(offset: var_offset, data: var_data);
+      case 1:
+        var var_job = sse_decode_box_autoadd_job(deserializer);
+        return LogEvent_Finished(job: var_job);
+      case 2:
+        var var_host = sse_decode_String(deserializer);
+        var var_lent = sse_decode_bool(deserializer);
+        return LogEvent_LentGitLogin(host: var_host, lent: var_lent);
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
+  Machine sse_decode_machine(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_shortId = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_os = sse_decode_String(deserializer);
+    var var_permissions = sse_decode_list_String(deserializer);
+    var var_pairedAt = sse_decode_u_64(deserializer);
+    return Machine(
+      id: var_id,
+      shortId: var_shortId,
+      name: var_name,
+      os: var_os,
+      permissions: var_permissions,
+      pairedAt: var_pairedAt,
+    );
+  }
+
+  @protected
+  MachineStatus sse_decode_machine_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_agentVersion = sse_decode_String(deserializer);
+    var var_paused = sse_decode_bool(deserializer);
+    var var_runningJobs = sse_decode_u_32(deserializer);
+    var var_queuedJobs = sse_decode_u_32(deserializer);
+    return MachineStatus(
+      name: var_name,
+      agentVersion: var_agentVersion,
+      paused: var_paused,
+      runningJobs: var_runningJobs,
+      queuedJobs: var_queuedJobs,
+    );
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_i_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ProjectCopy sse_decode_project_copy(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_path = sse_decode_String(deserializer);
+    var var_files = sse_decode_u_64(deserializer);
+    var var_bytes = sse_decode_u_64(deserializer);
+    var var_lastSyncedMs = sse_decode_opt_box_autoadd_u_64(deserializer);
+    return ProjectCopy(
+      id: var_id,
+      path: var_path,
+      files: var_files,
+      bytes: var_bytes,
+      lastSyncedMs: var_lastSyncedMs,
+    );
+  }
+
+  @protected
+  Removed sse_decode_removed(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_secrets = sse_decode_u_32(deserializer);
+    var var_projects = sse_decode_u_32(deserializer);
+    var var_jobs = sse_decode_u_32(deserializer);
+    var var_shells = sse_decode_u_32(deserializer);
+    var var_bytes = sse_decode_u_64(deserializer);
+    var var_kept = sse_decode_list_String(deserializer);
+    return Removed(
+      secrets: var_secrets,
+      projects: var_projects,
+      jobs: var_jobs,
+      shells: var_shells,
+      bytes: var_bytes,
+      kept: var_kept,
+    );
+  }
+
+  @protected
+  Secret sse_decode_secret(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_size = sse_decode_u_64(deserializer);
+    var var_createdAtMs = sse_decode_u_64(deserializer);
+    var var_expiresAtMs = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_lastUsedMs = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_note = sse_decode_opt_String(deserializer);
+    return Secret(
+      name: var_name,
+      size: var_size,
+      createdAtMs: var_createdAtMs,
+      expiresAtMs: var_expiresAtMs,
+      lastUsedMs: var_lastUsedMs,
+      note: var_note,
+    );
+  }
+
+  @protected
+  ShellEvent sse_decode_shell_event(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var tag_ = sse_decode_i_32(deserializer);
+    switch (tag_) {
+      case 0:
+        var var_offset = sse_decode_u_64(deserializer);
+        var var_data = sse_decode_list_prim_u_8_strict(deserializer);
+        return ShellEvent_Output(offset: var_offset, data: var_data);
+      case 1:
+        var var_code = sse_decode_opt_box_autoadd_u_32(deserializer);
+        return ShellEvent_Exited(code: var_code);
+      case 2:
+        var var_message = sse_decode_String(deserializer);
+        return ShellEvent_Disconnected(message: var_message);
+      default:
+        throw UnimplementedError('');
+    }
+  }
+
+  @protected
+  ShellInfo sse_decode_shell_info(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_startedBy = sse_decode_String(deserializer);
+    var var_createdAtMs = sse_decode_u_64(deserializer);
+    var var_exited = sse_decode_bool(deserializer);
+    var var_attached = sse_decode_u_32(deserializer);
+    return ShellInfo(
+      id: var_id,
+      startedBy: var_startedBy,
+      createdAtMs: var_createdAtMs,
+      exited: var_exited,
+      attached: var_attached,
+    );
+  }
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -191,21 +2067,261 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
+  BigInt sse_decode_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
+    sse_encode_String(self.message, serializer);
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    Shell self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as ShellImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    YonderApp self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as YonderAppImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    Shell self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as ShellImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    YonderApp self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as YonderAppImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerShell(
+    Shell self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as ShellImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerYonderApp(
+    YonderApp self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as YonderAppImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_log_event_Sse(
+    RustStreamSink<LogEvent> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_log_event,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_StreamSink_shell_event_Sse(
+    RustStreamSink<ShellEvent> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(
+      self.setupAndSerialize(
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_shell_event,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+      ),
+      serializer,
+    );
   }
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
+  }
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_job(Job self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_job(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_device(Device self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.shortId, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_list_String(self.permissions, serializer);
+    sse_encode_u_64(self.pairedAt, serializer);
+    sse_encode_bool(self.isThisDevice, serializer);
+  }
+
+  @protected
+  void sse_encode_footprint(Footprint self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_secret(self.secrets, serializer);
+    sse_encode_list_project_copy(self.projects, serializer);
+    sse_encode_u_32(self.jobs, serializer);
+    sse_encode_u_32(self.unfinishedJobs, serializer);
+    sse_encode_u_64(self.jobBytes, serializer);
+    sse_encode_list_shell_info(self.shells, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.cleanupAfterDays, serializer);
+    sse_encode_String(self.diskEncryption, serializer);
+  }
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+
+  @protected
+  void sse_encode_job(Job self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.command, serializer);
+    sse_encode_opt_String(self.label, serializer);
+    sse_encode_opt_String(self.cwd, serializer);
+    sse_encode_String(self.startedBy, serializer);
+    sse_encode_String(self.state, serializer);
+    sse_encode_opt_box_autoadd_i_32(self.exitCode, serializer);
+    sse_encode_opt_String(self.message, serializer);
+    sse_encode_u_64(self.createdAtMs, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.startedAtMs, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.finishedAtMs, serializer);
+    sse_encode_u_64(self.logBytes, serializer);
+  }
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_device(List<Device> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_device(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_job(List<Job> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_job(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_machine(List<Machine> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_machine(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(
+    List<int> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint8List(
+      self is Uint8List ? self : Uint8List.fromList(self),
+    );
   }
 
   @protected
@@ -216,6 +2332,195 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_project_copy(
+    List<ProjectCopy> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_project_copy(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_secret(List<Secret> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_secret(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_shell_info(
+    List<ShellInfo> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_shell_info(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_log_event(LogEvent self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case LogEvent_Output(offset: final offset, data: final data):
+        sse_encode_i_32(0, serializer);
+        sse_encode_u_64(offset, serializer);
+        sse_encode_list_prim_u_8_strict(data, serializer);
+      case LogEvent_Finished(job: final job):
+        sse_encode_i_32(1, serializer);
+        sse_encode_box_autoadd_job(job, serializer);
+      case LogEvent_LentGitLogin(host: final host, lent: final lent):
+        sse_encode_i_32(2, serializer);
+        sse_encode_String(host, serializer);
+        sse_encode_bool(lent, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_machine(Machine self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.shortId, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.os, serializer);
+    sse_encode_list_String(self.permissions, serializer);
+    sse_encode_u_64(self.pairedAt, serializer);
+  }
+
+  @protected
+  void sse_encode_machine_status(MachineStatus self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.agentVersion, serializer);
+    sse_encode_bool(self.paused, serializer);
+    sse_encode_u_32(self.runningJobs, serializer);
+    sse_encode_u_32(self.queuedJobs, serializer);
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_i_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_project_copy(ProjectCopy self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.path, serializer);
+    sse_encode_u_64(self.files, serializer);
+    sse_encode_u_64(self.bytes, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.lastSyncedMs, serializer);
+  }
+
+  @protected
+  void sse_encode_removed(Removed self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.secrets, serializer);
+    sse_encode_u_32(self.projects, serializer);
+    sse_encode_u_32(self.jobs, serializer);
+    sse_encode_u_32(self.shells, serializer);
+    sse_encode_u_64(self.bytes, serializer);
+    sse_encode_list_String(self.kept, serializer);
+  }
+
+  @protected
+  void sse_encode_secret(Secret self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_u_64(self.size, serializer);
+    sse_encode_u_64(self.createdAtMs, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.expiresAtMs, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.lastUsedMs, serializer);
+    sse_encode_opt_String(self.note, serializer);
+  }
+
+  @protected
+  void sse_encode_shell_event(ShellEvent self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    switch (self) {
+      case ShellEvent_Output(offset: final offset, data: final data):
+        sse_encode_i_32(0, serializer);
+        sse_encode_u_64(offset, serializer);
+        sse_encode_list_prim_u_8_strict(data, serializer);
+      case ShellEvent_Exited(code: final code):
+        sse_encode_i_32(1, serializer);
+        sse_encode_opt_box_autoadd_u_32(code, serializer);
+      case ShellEvent_Disconnected(message: final message):
+        sse_encode_i_32(2, serializer);
+        sse_encode_String(message, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_shell_info(ShellInfo self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.startedBy, serializer);
+    sse_encode_u_64(self.createdAtMs, serializer);
+    sse_encode_bool(self.exited, serializer);
+    sse_encode_u_32(self.attached, serializer);
+  }
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
+  }
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected
@@ -230,14 +2535,191 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
+  void sse_encode_usize(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
+    serializer.buffer.putBigUint64(self);
   }
+}
 
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
-  }
+@sealed
+class ShellImpl extends RustOpaque implements Shell {
+  // Not to be used by end users
+  ShellImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  ShellImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_Shell,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_Shell,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_ShellPtr,
+  );
+
+  /// Leaves the shell running on the machine.
+  Future<void> detach() =>
+      RustLib.instance.api.crateApiYonderShellDetach(that: this);
+
+  String id() => RustLib.instance.api.crateApiYonderShellId(that: this);
+
+  Future<void> resize({required int cols, required int rows}) => RustLib
+      .instance
+      .api
+      .crateApiYonderShellResize(that: this, cols: cols, rows: rows);
+
+  Future<void> send({required List<int> data}) =>
+      RustLib.instance.api.crateApiYonderShellSend(that: this, data: data);
+}
+
+@sealed
+class YonderAppImpl extends RustOpaque implements YonderApp {
+  // Not to be used by end users
+  YonderAppImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  YonderAppImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_YonderApp,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_YonderApp,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_YonderAppPtr,
+  );
+
+  Future<Job> cancelJob({required String machineId, required String jobId}) =>
+      RustLib.instance.api.crateApiYonderYonderAppCancelJob(
+        that: this,
+        machineId: machineId,
+        jobId: jobId,
+      );
+
+  /// Removes part of this device's footprint: `everything`, `jobs`, `shells`,
+  /// `secret:NAME` or `project:ID`.
+  Future<Removed> clean({required String machineId, required String what}) =>
+      RustLib.instance.api.crateApiYonderYonderAppClean(
+        that: this,
+        machineId: machineId,
+        what: what,
+      );
+
+  String deviceName() =>
+      RustLib.instance.api.crateApiYonderYonderAppDeviceName(that: this);
+
+  Future<List<Device>> devices({required String machineId}) => RustLib
+      .instance
+      .api
+      .crateApiYonderYonderAppDevices(that: this, machineId: machineId);
+
+  String fingerprint() =>
+      RustLib.instance.api.crateApiYonderYonderAppFingerprint(that: this);
+
+  /// Streams a job's log from byte `from` until it finishes.
+  Stream<LogEvent> followJob({
+    required String machineId,
+    required String jobId,
+    required BigInt from,
+  }) => RustLib.instance.api.crateApiYonderYonderAppFollowJob(
+    that: this,
+    machineId: machineId,
+    jobId: jobId,
+    from: from,
+  );
+
+  Future<Footprint> footprint({required String machineId}) => RustLib
+      .instance
+      .api
+      .crateApiYonderYonderAppFootprint(that: this, machineId: machineId);
+
+  /// Whether this app holds the device's connections (false if another one does).
+  Future<bool> isHosting() =>
+      RustLib.instance.api.crateApiYonderYonderAppIsHosting(that: this);
+
+  Future<List<Job>> jobs({required String machineId}) => RustLib.instance.api
+      .crateApiYonderYonderAppJobs(that: this, machineId: machineId);
+
+  /// Paired machines, read fresh (the CLI may have paired or forgotten some).
+  List<Machine> machines() =>
+      RustLib.instance.api.crateApiYonderYonderAppMachines(that: this);
+
+  /// Opens a new shell (`session` empty) or attaches to one, streaming its output.
+  Stream<ShellEvent> openShell({
+    required String machineId,
+    String? session,
+    required int cols,
+    required int rows,
+    BigInt? from,
+  }) => RustLib.instance.api.crateApiYonderYonderAppOpenShell(
+    that: this,
+    machineId: machineId,
+    session: session,
+    cols: cols,
+    rows: rows,
+    from: from,
+  );
+
+  /// Pairs with a machine using the ticket `yonder-agent pair` showed; the machine's
+  /// owner approves it there after comparing [`YonderApp::fingerprint`].
+  Future<Machine> pair({required String ticket}) => RustLib.instance.api
+      .crateApiYonderYonderAppPair(that: this, ticket: ticket);
+
+  /// Cuts another device off a machine, removing what it left unless `keep`.
+  Future<Removed> revoke({
+    required String machineId,
+    required String deviceId,
+    required bool keep,
+  }) => RustLib.instance.api.crateApiYonderYonderAppRevoke(
+    that: this,
+    machineId: machineId,
+    deviceId: deviceId,
+    keep: keep,
+  );
+
+  /// Starts `command` in the machine's shell.
+  Future<Job> runJob({
+    required String machineId,
+    required String command,
+    String? cwd,
+    String? label,
+  }) => RustLib.instance.api.crateApiYonderYonderAppRunJob(
+    that: this,
+    machineId: machineId,
+    command: command,
+    cwd: cwd,
+    label: label,
+  );
+
+  /// Turns auto-cleanup on (`Some(days)`) or off.
+  Future<void> setCleanup({required String machineId, int? afterDays}) =>
+      RustLib.instance.api.crateApiYonderYonderAppSetCleanup(
+        that: this,
+        machineId: machineId,
+        afterDays: afterDays,
+      );
+
+  Future<List<ShellInfo>> shells({required String machineId}) => RustLib
+      .instance
+      .api
+      .crateApiYonderYonderAppShells(that: this, machineId: machineId);
+
+  /// Asks a machine how it is; fails if it can't be reached.
+  Future<MachineStatus> status({required String machineId}) => RustLib
+      .instance
+      .api
+      .crateApiYonderYonderAppStatus(that: this, machineId: machineId);
+
+  /// Leaves a machine, removing everything of this device's there unless `keep`.
+  Future<Removed> unpair({required String machineId, required bool keep}) =>
+      RustLib.instance.api.crateApiYonderYonderAppUnpair(
+        that: this,
+        machineId: machineId,
+        keep: keep,
+      );
 }
