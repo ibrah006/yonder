@@ -277,6 +277,7 @@ impl Controller {
                     addr: ticket.machine.clone(),
                     permissions,
                     paired_at: now_secs(),
+                    macs: Vec::new(),
                 };
                 let mut state = lock(&self.state);
                 state.upsert_machine(machine.clone());
@@ -502,8 +503,36 @@ impl Controller {
 
     pub async fn info(&self, machine: &PairedMachine) -> Result<MachineInfo> {
         match self.request(machine, Command::Info).await? {
-            Response::Info(info) => Ok(info),
+            Response::Info(info) => {
+                self.remember_macs(&machine.id, &info.macs);
+                Ok(info)
+            }
             other => Err(unexpected("info", &other)),
+        }
+    }
+
+    /// Keeps a machine's network card addresses, to wake it while it sleeps.
+    fn remember_macs(&self, id: &DeviceId, macs: &[String]) {
+        if macs.is_empty() {
+            return;
+        }
+        let mut state = lock(&self.state);
+        if let Some(m) = state.machines.iter_mut().find(|m| &m.id == id)
+            && m.macs != macs
+        {
+            m.macs = macs.to_vec();
+            let _ = state.save(&self.state_path);
+        }
+    }
+
+    /// Asks `via` (awake, on the same network) to broadcast the wake signal for `mac`.
+    pub async fn wake_via(&self, via: &PairedMachine, mac: &str) -> Result<()> {
+        let command = Command::Wake {
+            mac: mac.to_string(),
+        };
+        match self.request(via, command).await? {
+            Response::Done => Ok(()),
+            other => Err(unexpected("done", &other)),
         }
     }
 
