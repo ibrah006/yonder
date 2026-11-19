@@ -58,6 +58,9 @@ pub struct AgentConfig {
     pub jobs: Option<JobsConfig>,
     /// How to start shells. `None`: the machine's usual shell, as the agent's own user.
     pub shell: Option<ShellCommand>,
+    /// How to take a screenshot: the program and arguments, then the PNG file to write.
+    /// `None`: this machine doesn't take them.
+    pub screenshot: Option<ShellCommand>,
 }
 
 /// A controller asking to pair, shown to the person at the machine.
@@ -161,6 +164,7 @@ struct Inner {
     workspaces: Arc<Workspaces>,
     secrets: SecretStore,
     stats: Arc<StatsSampler>,
+    screenshot: Option<ShellCommand>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -214,6 +218,7 @@ impl Agent {
             )),
             secrets: SecretStore::new(config.state.secrets_dir()),
             stats: Arc::new(StatsSampler::default()),
+            screenshot: config.screenshot.clone(),
         });
         tokio::spawn(accept_loop(inner.clone()));
         tokio::spawn(cleanup_loop(Arc::downgrade(&inner)));
@@ -601,9 +606,18 @@ async fn serve_controller(inner: Arc<Inner>, conn: Connection) {
 /// What a request turned into.
 enum Reply {
     One(Box<Response>),
-    Logs { id: JobId, from: u64, follow: bool },
-    Terminal { session: Arc<Session>, from: u64 },
+    Logs {
+        id: JobId,
+        from: u64,
+        follow: bool,
+    },
+    Terminal {
+        session: Arc<Session>,
+        from: u64,
+    },
     Forward(tokio::net::TcpStream),
+    /// A PNG, sent in pieces (messages have a size limit).
+    Picture(Vec<u8>),
 }
 
 /// Handles one request stream: decide, record in the audit log, answer.
@@ -627,6 +641,7 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
         }
         Reply::Terminal { session, from } => serve_terminal(session, from, send, recv).await,
         Reply::Forward(tcp) => serve_forward(tcp, send, recv).await,
+        Reply::Picture(png) => send_picture(png, send).await,
     };
     if let Err(err) = sent {
         debug!("could not send response: {err}");
@@ -785,6 +800,18 @@ async fn decide(
             }
         }
         Command::ListTerminals => Reply::One(Box::new(Response::Terminals(inner.terminals.list()))),
+        Command::Screenshot => {
+            let command = inner.screenshot.clone().ok_or_else(|| {
+                RemoteError::new(
+                    ErrorCode::Unsupported,
+                    "this machine doesn't take screenshots",
+                )
+            })?;
+            let png = tokio::task::spawn_blocking(move || take_screenshot(&command))
+                .await
+                .map_err(|e| RemoteError::new(ErrorCode::Internal, e.to_string()))??;
+            Reply::Picture(png)
+        }
         Command::Wake { mac } => {
             let mac = crate::wake::parse_mac(&mac).ok_or_else(|| {
                 RemoteError::new(ErrorCode::BadRequest, "not a network card address")
@@ -1168,6 +1195,48 @@ async fn cleanup_loop(inner: std::sync::Weak<Inner>) {
         };
         let _ = tokio::task::spawn_blocking(move || inner.clean_up_unused(now_ms())).await;
     }
+}
+
+/// Runs the screenshot command and reads the PNG it wrote.
+fn take_screenshot(command: &ShellCommand) -> std::result::Result<Vec<u8>, RemoteError> {
+    let path = std::env::temp_dir().join(format!(
+        "yonder-screen-{}.png",
+        data_encoding::HEXLOWER.encode(&rand::random::<[u8; 8]>())
+    ));
+    let output = std::process::Command::new(&command.program)
+        .args(&command.args)
+        .arg(&path)
+        .output()
+        .map_err(|e| {
+            RemoteError::new(
+                ErrorCode::Internal,
+                format!("couldn't take a screenshot: {e}"),
+            )
+        })?;
+    let png = std::fs::read(&path);
+    let _ = std::fs::remove_file(&path);
+    match png {
+        Ok(png) if output.status.success() && !png.is_empty() => Ok(png),
+        _ => {
+            let why = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(RemoteError::new(
+                ErrorCode::NotFound,
+                if why.is_empty() {
+                    "couldn't take a screenshot (is someone signed in at the machine?)".to_string()
+                } else {
+                    why
+                },
+            ))
+        }
+    }
+}
+
+/// Sends a picture in pieces, then [`Response::Done`].
+async fn send_picture(png: Vec<u8>, mut send: SendStream) -> Result<()> {
+    for chunk in png.chunks(crate::workspace::CHUNK_BYTES) {
+        write_frame(&mut send, &Response::FileData(chunk.to_vec())).await?;
+    }
+    write_message(&mut send, &Response::Done).await
 }
 
 /// Passes a forwarded connection's bytes both ways until either side finishes.
