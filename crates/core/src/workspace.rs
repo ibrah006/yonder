@@ -406,6 +406,11 @@ impl Workspaces {
         }
     }
 
+    /// The folder all copies live in.
+    pub fn dir_root(&self) -> PathBuf {
+        self.files_root.clone()
+    }
+
     /// The folder jobs see.
     pub fn dir(&self, id: &WorkspaceId) -> PathBuf {
         self.files_root.join(id.as_str())
