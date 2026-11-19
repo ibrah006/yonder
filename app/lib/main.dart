@@ -1,25 +1,326 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:yonder_app/src/rust/api/simple.dart';
-import 'package:yonder_app/src/rust/frb_generated.dart';
+
+import 'src/rust/api/yonder.dart';
+import 'src/rust/frb_generated.dart';
+import 'ui/devices.dart';
+import 'ui/footprint.dart';
+import 'ui/format.dart';
+import 'ui/jobs.dart';
+import 'ui/pair.dart';
+import 'ui/terminal.dart';
 
 Future<void> main() async {
   await RustLib.init();
-  runApp(const MyApp());
+  runApp(const YonderAppView());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class YonderAppView extends StatelessWidget {
+  const YonderAppView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    ThemeData theme(Brightness brightness) => ThemeData(
+          colorSchemeSeed: const Color(0xFF3D6B5E),
+          brightness: brightness,
+          visualDensity: VisualDensity.compact,
+        );
     return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(title: const Text('flutter_rust_bridge quickstart')),
-        body: Center(
-          child: Text(
-            'Action: Call Rust `greet("Tom")`\nResult: `${greet(name: "Tom")}`',
+      title: 'Yonder',
+      theme: theme(Brightness.light),
+      darkTheme: theme(Brightness.dark),
+      debugShowCheckedModeBanner: false,
+      home: const Home(),
+    );
+  }
+}
+
+class Home extends StatefulWidget {
+  const Home({super.key});
+
+  @override
+  State<Home> createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  YonderApp? app;
+  String? openError;
+  List<Machine> machines = [];
+  final Map<String, MachineStatus?> status = {};
+  final Map<String, String> statusError = {};
+  String? selected;
+  Timer? refresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _open();
+  }
+
+  Future<void> _open() async {
+    try {
+      final opened = await YonderApp.open();
+      setState(() => app = opened);
+      _reload();
+      refresh = Timer.periodic(const Duration(seconds: 15), (_) => _reload());
+    } catch (e) {
+      setState(() => openError = errorText(e));
+    }
+  }
+
+  @override
+  void dispose() {
+    refresh?.cancel();
+    super.dispose();
+  }
+
+  void _reload() {
+    final app = this.app;
+    if (app == null) return;
+    setState(() {
+      machines = app.machines();
+      if (selected == null || !machines.any((m) => m.id == selected)) {
+        selected = machines.isEmpty ? null : machines.first.id;
+      }
+    });
+    for (final m in machines) {
+      app.status(machineId: m.id).then((s) {
+        if (!mounted) return;
+        setState(() {
+          status[m.id] = s;
+          statusError.remove(m.id);
+        });
+      }).catchError((Object e) {
+        if (!mounted) return;
+        setState(() {
+          status[m.id] = null;
+          statusError[m.id] = errorText(e);
+        });
+      });
+    }
+  }
+
+  Future<void> _pair() async {
+    final app = this.app;
+    if (app == null) return;
+    final paired = await showDialog<Machine>(
+      context: context,
+      builder: (_) => PairDialog(app: app),
+    );
+    if (paired != null) {
+      selected = paired.id;
+      _reload();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = this.app;
+    if (openError != null) {
+      return Scaffold(body: Center(child: Text("Couldn't open Yonder: $openError")));
+    }
+    if (app == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final scheme = Theme.of(context).colorScheme;
+    final machine = machines.where((m) => m.id == selected).firstOrNull;
+    return Scaffold(
+      body: Row(
+        children: [
+          Container(
+            width: 240,
+            color: scheme.surfaceContainerLow,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 28, 16, 4),
+                  child: Text('Machines', style: Theme.of(context).textTheme.titleSmall),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (final m in machines)
+                        _MachineTile(
+                          machine: m,
+                          status: status[m.id],
+                          error: statusError[m.id],
+                          selected: m.id == selected,
+                          onTap: () => setState(() => selected = m.id),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: OutlinedButton.icon(
+                    onPressed: _pair,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Pair a machine'),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text(
+                    '${app.deviceName()} · ${app.fingerprint()}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          Expanded(
+            child: machine == null
+                ? const Center(child: Text('Pair a machine to get started.'))
+                : MachineView(
+                    key: ValueKey(machine.id),
+                    app: app,
+                    machine: machine,
+                    status: status[machine.id],
+                    error: statusError[machine.id],
+                    onChanged: _reload,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MachineTile extends StatelessWidget {
+  const _MachineTile({
+    required this.machine,
+    required this.status,
+    required this.error,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Machine machine;
+  final MachineStatus? status;
+  final String? error;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = this.status;
+    final online = status != null;
+    final busy = online && (status.runningJobs > 0 || status.queuedJobs > 0);
+    final color = error != null
+        ? Colors.grey
+        : !online
+            ? Colors.transparent
+            : status.paused
+                ? Colors.orange
+                : busy
+                    ? Colors.blue
+                    : Colors.green;
+    final subtitle = error != null
+        ? 'offline'
+        : !online
+            ? 'checking…'
+            : status.paused
+                ? 'paused'
+                : busy
+                    ? '${status.runningJobs} running, ${status.queuedJobs} queued'
+                    : 'online, idle';
+    return ListTile(
+      selected: selected,
+      dense: true,
+      leading: Icon(
+        machine.os == 'win'
+            ? Icons.window
+            : machine.os == 'mac'
+                ? Icons.laptop_mac
+                : Icons.computer,
+      ),
+      title: Text(machine.name),
+      subtitle: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Flexible(child: Text(subtitle, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// One machine: jobs, terminal, footprint and devices.
+class MachineView extends StatelessWidget {
+  const MachineView({
+    super.key,
+    required this.app,
+    required this.machine,
+    required this.status,
+    required this.error,
+    required this.onChanged,
+  });
+
+  final YonderApp app;
+  final Machine machine;
+  final MachineStatus? status;
+  final String? error;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = this.status;
+    final text = Theme.of(context).textTheme;
+    return DefaultTabController(
+      length: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(machine.name, style: text.headlineSmall),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    machine.os,
+                    if (status != null) 'agent ${status.agentVersion}',
+                    if (error != null) "can't reach it: $error",
+                    'paired ${date(machine.pairedAt)}',
+                  ].join(' · '),
+                  style: text.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: 'Jobs'),
+              Tab(text: 'Terminal'),
+              Tab(text: 'Footprint'),
+              Tab(text: 'Devices'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                JobsTab(app: app, machine: machine),
+                TerminalTab(app: app, machine: machine),
+                FootprintTab(app: app, machine: machine, onUnpaired: onChanged),
+                DevicesTab(app: app, machine: machine),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
