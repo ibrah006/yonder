@@ -10,6 +10,7 @@ use iroh::endpoint::{ApplicationClose, Connection, ConnectionError, RecvStream, 
 
 use crate::Os;
 use crate::agent::{APPROVAL_TIMEOUT, clean_name};
+use crate::credentials::{GitCredential, GitCredentialRequest};
 use crate::error::{Error, Result};
 use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
@@ -479,7 +480,22 @@ impl Controller {
         id: &JobId,
         from: u64,
         follow: bool,
+        on_chunk: impl FnMut(u64, &[u8]),
+    ) -> Result<JobInfo> {
+        self.logs_lending(machine, id, from, follow, on_chunk, |_| {})
+            .await
+    }
+
+    /// Like [`Controller::logs`], also passing on the job's borrowed-git requests
+    /// (answer them with [`Controller::answer_git_credential`]).
+    pub async fn logs_lending(
+        &self,
+        machine: &PairedMachine,
+        id: &JobId,
+        from: u64,
+        follow: bool,
         mut on_chunk: impl FnMut(u64, &[u8]),
+        mut on_git_request: impl FnMut(GitCredentialRequest),
     ) -> Result<JobInfo> {
         let conn = self.connection(machine).await?;
         let command = Command::JobLogs {
@@ -494,6 +510,7 @@ impl Controller {
             loop {
                 match read_frame::<Response>(&mut recv).await? {
                     Some(Response::LogChunk { offset, data }) => on_chunk(offset, &data),
+                    Some(Response::GitCredentialRequest(request)) => on_git_request(request),
                     Some(Response::LogEnd { job }) => return Ok(job),
                     Some(Response::Error(err)) => return Err(Error::Remote(err)),
                     Some(other) => return Err(unexpected("log output", &other)),
@@ -602,6 +619,25 @@ impl Controller {
             .request(machine, Command::RemoveSecret(name.clone()))
             .await?
         {
+            Response::Done => Ok(()),
+            other => Err(unexpected("done", &other)),
+        }
+    }
+
+    /// Lends (or, with `None`, declines) a git login a job of this device asked for.
+    pub async fn answer_git_credential(
+        &self,
+        machine: &PairedMachine,
+        job: &JobId,
+        request: String,
+        credential: Option<GitCredential>,
+    ) -> Result<()> {
+        let command = Command::AnswerGitCredential {
+            job: job.clone(),
+            request,
+            credential,
+        };
+        match self.request(machine, command).await? {
             Response::Done => Ok(()),
             other => Err(unexpected("done", &other)),
         }
