@@ -12,8 +12,8 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 use iroh::Signature;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::Os;
 use crate::credentials::{GitCredential, GitCredentialRequest};
