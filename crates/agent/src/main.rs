@@ -82,6 +82,16 @@ enum Cmd {
         /// Device name or the start of its id.
         device: String,
     },
+    /// Give a paired device a permission, e.g. `allow mac admin` for jobs with
+    /// administrator rights (`yonder prep`, `yonder run --admin`).
+    Allow {
+        /// Device name or the start of its id.
+        device: String,
+        /// run_jobs, terminal, admin, footprint or manage_machine.
+        permission: String,
+    },
+    /// Take a permission away from a paired device.
+    Deny { device: String, permission: String },
     /// Show this machine's id and fingerprint.
     Id,
     /// Refuse new jobs until `resume`. Running jobs carry on.
@@ -187,6 +197,8 @@ fn settings(args: &Args) -> Result<(NetConfig, JobsConfig)> {
         runner: RunnerCommand::agent_binary(
             std::env::current_exe().context("couldn't find the agent's own program file")?,
         ),
+        // Only the Windows service offers these (as LocalSystem); see use_build_user.
+        admin_runner: None,
         max_parallel: args.max_jobs.max(1),
     };
     Ok((net, jobs))
@@ -214,6 +226,8 @@ fn use_build_user(
     state: &StateDir,
     jobs: &mut JobsConfig,
 ) -> Result<Option<yonder_core::terminal::ShellCommand>> {
+    // Administrator jobs run straight from the service, as LocalSystem.
+    jobs.admin_runner = Some(jobs.runner.clone());
     if args.run_as_system {
         tracing::warn!("jobs and shells run as LocalSystem (--run-as-system)");
         return Ok(None);
@@ -286,6 +300,8 @@ async fn async_main(args: Args) -> Result<()> {
         }
         Cmd::Controllers => list_controllers(&state),
         Cmd::Revoke { device } => revoke(&state, &device),
+        Cmd::Allow { device, permission } => set_permission(&state, &device, &permission, true),
+        Cmd::Deny { device, permission } => set_permission(&state, &device, &permission, false),
         Cmd::Id => {
             let key = DeviceKey::load_or_create(&state.key_file())?;
             println!("id:          {}", key.id());
@@ -733,6 +749,37 @@ fn revoke(state: &StateDir, query: &str) -> Result<()> {
         "Revoked \"{}\". It can no longer use this machine.",
         target.name
     );
+    Ok(())
+}
+
+fn set_permission(state: &StateDir, query: &str, permission: &str, allow: bool) -> Result<()> {
+    let Some(permission) = yonder_core::permissions::Permission::parse(permission.trim()) else {
+        bail!(
+            "\"{permission}\" isn't a permission; use run_jobs, terminal, admin, footprint or manage_machine"
+        );
+    };
+    let path = state.agent_file();
+    let mut agent_state = AgentState::load(&path)?;
+    let target = find_controller(&agent_state.controllers, query)?;
+    let controller = agent_state
+        .controllers
+        .iter_mut()
+        .find(|c| c.id == target.id)
+        .expect("found above");
+    if allow {
+        controller.permissions.insert(permission);
+    } else {
+        controller.permissions.remove(permission);
+    }
+    let now = controller.permissions.clone();
+    agent_state.save(&path)?;
+    println!("\"{}\" now has: {now}", target.name);
+    if allow && permission == yonder_core::permissions::Permission::Admin {
+        println!(
+            "It can run jobs with full administrator rights on this machine. Undo: yonder-agent deny \"{}\" admin",
+            target.name
+        );
+    }
     Ok(())
 }
 
