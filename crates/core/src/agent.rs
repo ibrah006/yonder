@@ -14,6 +14,7 @@ use tracing::{debug, info, warn};
 
 use crate::Os;
 use crate::audit::{AuditEntry, AuditLog};
+use crate::credentials;
 use crate::error::Result;
 use crate::footprint::{DeviceInfo, Footprint, FootprintItem, Removed};
 use crate::identity::{DeviceId, DeviceKey, fingerprint};
@@ -546,7 +547,9 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
     }
     let sent = match reply {
         Reply::One(response) => write_message(&mut send, &*response).await,
-        Reply::Logs { id, from, follow } => stream_logs(inner, &id, from, follow, &mut send).await,
+        Reply::Logs { id, from, follow } => {
+            stream_logs(inner, &peer, &id, from, follow, &mut send).await
+        }
         Reply::Terminal { session, from } => serve_terminal(session, from, send, recv).await,
     };
     if let Err(err) = sent {
@@ -815,6 +818,30 @@ async fn decide(
             };
             Reply::One(Box::new(Response::Removed(removed)))
         }
+        Command::AnswerGitCredential {
+            job,
+            request,
+            credential,
+        } => {
+            // The login must never reach the audit log.
+            audit.request = None;
+            let jobs = inner.job(&job)?;
+            let info = jobs.store().info(&job).map_err(internal)?;
+            if &info.meta.controller != peer || !info.meta.spec.borrow_git {
+                return Err(RemoteError::new(
+                    ErrorCode::PermissionDenied,
+                    "only the device that started this job can lend it git logins",
+                ));
+            }
+            let dir = jobs.store().job_dir(&job);
+            if !credentials::answer(&dir, &request, credential).map_err(internal)? {
+                return Err(RemoteError::new(
+                    ErrorCode::NotFound,
+                    "that git request is no longer waiting",
+                ));
+            }
+            Reply::One(Box::new(Response::Done))
+        }
         Command::RemoveSecret(name) => {
             if !inner.secrets.remove(peer, &name).map_err(internal)? {
                 return Err(RemoteError::new(
@@ -911,6 +938,7 @@ async fn serve_terminal(
 /// ending with [`Response::LogEnd`] once the job has finished and everything was sent.
 async fn stream_logs(
     inner: &Inner,
+    peer: &DeviceId,
     id: &JobId,
     mut from: u64,
     follow: bool,
@@ -920,6 +948,8 @@ async fn stream_logs(
         Ok(jobs) => jobs.store().clone(),
         Err(err) => return write_message(send, &Response::Error(err)).await,
     };
+    // Borrowed-git requests already passed on in this stream.
+    let mut asked = std::collections::HashSet::new();
     loop {
         let chunk = {
             let (store, id) = (store.clone(), id.clone());
@@ -947,6 +977,14 @@ async fn stream_logs(
         }
         if job.status.state.is_finished() || !follow {
             return write_message(send, &Response::LogEnd { job }).await;
+        }
+        // Only the device that started the job lends it logins.
+        if job.meta.spec.borrow_git && &job.meta.controller == peer {
+            for request in credentials::pending(&store.job_dir(id)) {
+                if asked.insert(request.id.clone()) {
+                    write_frame(send, &Response::GitCredentialRequest(request)).await?;
+                }
+            }
         }
         tokio::select! {
             _ = tokio::time::sleep(LOG_POLL) => {}
