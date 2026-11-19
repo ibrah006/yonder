@@ -51,7 +51,7 @@ pub fn run(job_dir: &Path) -> Result<JobState> {
     // Secret files go when the job ends, however it ends.
     let _secret_files = SecretFiles(job_dir);
     let started = secrets.map_err(std::io::Error::other).and_then(|secrets| {
-        let command = build_command(&meta.spec, &log, &secrets)?;
+        let command = build_command(&meta.spec, job_dir, &log, &secrets)?;
         if secrets
             .iter()
             .any(|s| matches!(s.target, SecretTarget::File(_)))
@@ -170,6 +170,7 @@ fn job_cwd(spec: &JobSpec) -> Option<PathBuf> {
 
 fn build_command(
     spec: &JobSpec,
+    job_dir: &Path,
     log: &std::fs::File,
     secrets: &[Resolved],
 ) -> std::io::Result<Command> {
@@ -195,6 +196,11 @@ fn build_command(
             })?;
             command.env(name, value);
         }
+    }
+    if spec.borrow_git {
+        // This runner is the agent binary, which also serves as git's helper.
+        let exe = std::env::current_exe()?;
+        command.envs(crate::credentials::helper_env(&exe, job_dir));
     }
     if let Some(cwd) = job_cwd(spec) {
         command.current_dir(cwd);
@@ -305,6 +311,7 @@ mod tests {
             env: vec![],
             label: None,
             secrets: vec![],
+            borrow_git: false,
         };
         let (store, id, state, _dir) = run_spec(spec);
         assert_eq!(state, JobState::Failed);
