@@ -46,3 +46,10 @@ String errorText(Object error) {
   final match = RegExp(r'^AnyhowException\((.*)\)$', dotAll: true).firstMatch(text);
   return (match?.group(1) ?? text).split('\n\nStack backtrace').first.trim();
 }
+
+String uptime(BigInt secs) {
+  final s = secs.toInt();
+  if (s < 3600) return '${s ~/ 60} min';
+  if (s < 86400) return '${s ~/ 3600} h';
+  return '${s ~/ 86400} days';
+}
