@@ -21,7 +21,7 @@ A new Flutter FFI plugin project.
   s.source_files     = 'Classes/**/*'
   s.dependency 'FlutterMacOS'
 
-  s.platform = :osx, '10.11'
+  s.platform = :osx, '10.15'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 
@@ -41,4 +41,6 @@ A new Flutter FFI plugin project.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libyonder_bridge.a',
   }
+  # The network code (iroh) reads network interfaces and the keychain-backed TLS roots.
+  s.frameworks = 'SystemConfiguration', 'Security', 'CoreFoundation'
 end
