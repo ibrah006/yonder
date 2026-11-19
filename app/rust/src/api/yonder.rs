@@ -10,7 +10,9 @@ use std::sync::{Arc, LazyLock};
 use anyhow::{Context, Result, anyhow};
 use flutter_rust_bridge::frb;
 use tokio::sync::Mutex;
-use yonder_core::controller::{Controller, ControllerConfig, TerminalEvent, TerminalWriter};
+use yonder_core::controller::{
+    Controller, ControllerConfig, TerminalEvent, TerminalReader, TerminalWriter,
+};
 use yonder_core::footprint::{DiskEncryption, FootprintItem};
 use yonder_core::jobs::{JobInfo, JobId, JobSpec};
 use yonder_core::net::NetConfig;
@@ -218,6 +220,7 @@ pub struct YonderApp {
 pub struct Shell {
     id: String,
     writer: Arc<Mutex<Option<TerminalWriter>>>,
+    reader: Arc<Mutex<Option<TerminalReader>>>,
 }
 
 impl YonderApp {
@@ -378,7 +381,8 @@ impl YonderApp {
         .await
     }
 
-    /// Opens a new shell (`session` empty) or attaches to one, streaming its output.
+    /// Opens a new shell (`session` empty) or attaches to one, replaying output from
+    /// byte `from` (default: all it kept). Read its output with [`Shell::events`].
     pub async fn open_shell(
         &self,
         machine_id: String,
@@ -386,7 +390,6 @@ impl YonderApp {
         cols: u16,
         rows: u16,
         from: Option<u64>,
-        sink: StreamSink<ShellEvent>,
     ) -> Result<Shell> {
         let (c, m) = (self.controller.clone(), self.find(&machine_id)?);
         let session = match session {
@@ -396,30 +399,11 @@ impl YonderApp {
             None => None,
         };
         on_runtime(async move {
-            let (info, writer, mut reader) = c.open_terminal(&m, session, cols, rows, from).await?;
-            RUNTIME.spawn(async move {
-                loop {
-                    let event = match reader.next().await {
-                        Ok(TerminalEvent::Output { offset, data }) => ShellEvent::Output { offset, data },
-                        Ok(TerminalEvent::Exit(code)) => {
-                            let _ = sink.add(ShellEvent::Exited { code });
-                            return;
-                        }
-                        Err(err) => {
-                            let _ = sink.add(ShellEvent::Disconnected {
-                                message: err.to_string(),
-                            });
-                            return;
-                        }
-                    };
-                    if sink.add(event).is_err() {
-                        return;
-                    }
-                }
-            });
+            let (info, writer, reader) = c.open_terminal(&m, session, cols, rows, from).await?;
             Ok(Shell {
                 id: info.id.to_string(),
                 writer: Arc::new(Mutex::new(Some(writer))),
+                reader: Arc::new(Mutex::new(Some(reader))),
             })
         })
         .await
@@ -574,6 +558,37 @@ impl Shell {
     #[frb(sync)]
     pub fn id(&self) -> String {
         self.id.clone()
+    }
+
+    /// The shell's output until it exits or the connection drops. Call once.
+    pub async fn events(&self, sink: StreamSink<ShellEvent>) -> Result<()> {
+        let reader = self.reader.clone();
+        on_runtime(async move {
+            let mut reader = reader
+                .lock()
+                .await
+                .take()
+                .ok_or_else(|| anyhow!("the shell's output is already being read"))?;
+            loop {
+                let event = match reader.next().await {
+                    Ok(TerminalEvent::Output { offset, data }) => ShellEvent::Output { offset, data },
+                    Ok(TerminalEvent::Exit(code)) => {
+                        let _ = sink.add(ShellEvent::Exited { code });
+                        return Ok(());
+                    }
+                    Err(err) => {
+                        let _ = sink.add(ShellEvent::Disconnected {
+                            message: err.to_string(),
+                        });
+                        return Ok(());
+                    }
+                };
+                if sink.add(event).is_err() {
+                    return Ok(());
+                }
+            }
+        })
+        .await
     }
 
     pub async fn send(&self, data: Vec<u8>) -> Result<()> {
