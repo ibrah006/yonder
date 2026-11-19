@@ -20,7 +20,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use yonder_core::controller::{Controller, ControllerConfig};
 use yonder_core::net::NetConfig;
-use yonder_core::store::{StateDir, default_controller_dir, format_date};
+use yonder_core::store::{StateDir, default_controller_dir, format_date, format_datetime_ms};
 use yonder_core::ticket::PairingTicket;
 
 /// Use your other machines from this one.
@@ -194,6 +194,17 @@ enum Cmd {
         #[arg(long)]
         no_wait: bool,
     },
+    /// Save a picture of a machine's screen (someone must be signed in there). Needs the
+    /// admin permission, since it shows that person's screen.
+    Screenshot {
+        machine: String,
+        /// Where to save it (default: <machine>-<time>.png here).
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        /// Open it once saved.
+        #[arg(long)]
+        open: bool,
+    },
     /// Show every paired machine: online, paused, busy.
     Status,
     /// Pair with a machine using the ticket `yonder-agent pair` showed on it.
@@ -357,6 +368,28 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
             local,
         } => forward::run(controller, &machine, &target, local).await?,
         Cmd::Wake { machine, no_wait } => wake::run(controller, &machine, !no_wait).await?,
+        Cmd::Screenshot { machine, out, open } => {
+            let machine = controller.pick_machine(&machine).await?;
+            let png = controller.screenshot(&machine).await?;
+            let out = out.unwrap_or_else(|| {
+                let stamp =
+                    format_datetime_ms(yonder_core::protocol::now_ms()).replace([' ', ':'], "-");
+                PathBuf::from(format!("{}-{stamp}.png", machine.name))
+            });
+            std::fs::write(&out, &png)
+                .with_context(|| format!("couldn't write {}", out.display()))?;
+            println!("Saved {} ({} KB).", out.display(), png.len() / 1000);
+            if open {
+                let opener = if cfg!(target_os = "macos") {
+                    "open"
+                } else if cfg!(windows) {
+                    "explorer"
+                } else {
+                    "xdg-open"
+                };
+                let _ = std::process::Command::new(opener).arg(&out).status();
+            }
+        }
         Cmd::Status => status(controller).await?,
         Cmd::Pair { ticket, .. } => {
             let ticket = PairingTicket::decode(&ticket)?;
@@ -499,7 +532,8 @@ async fn status(controller: &Controller) -> Result<()> {
             Ok(Err(yonder_core::Error::Protocol(_))) => (
                 "mismatch".to_string(),
                 "-".to_string(),
-                "the machine's agent and this yonder are different versions; update the agent".to_string(),
+                "the machine's agent and this yonder are different versions; update the agent"
+                    .to_string(),
             ),
             _ => ("offline".to_string(), "-".to_string(), String::new()),
         };
