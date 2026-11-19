@@ -603,6 +603,7 @@ enum Reply {
     One(Box<Response>),
     Logs { id: JobId, from: u64, follow: bool },
     Terminal { session: Arc<Session>, from: u64 },
+    Forward(tokio::net::TcpStream),
 }
 
 /// Handles one request stream: decide, record in the audit log, answer.
@@ -625,6 +626,7 @@ async fn handle_stream(inner: &Inner, peer: DeviceId, mut send: SendStream, mut 
             stream_logs(inner, &peer, &id, from, follow, &mut send).await
         }
         Reply::Terminal { session, from } => serve_terminal(session, from, send, recv).await,
+        Reply::Forward(tcp) => serve_forward(tcp, send, recv).await,
     };
     if let Err(err) = sent {
         debug!("could not send response: {err}");
@@ -780,6 +782,34 @@ async fn decide(
             }
         }
         Command::ListTerminals => Reply::One(Box::new(Response::Terminals(inner.terminals.list()))),
+        Command::Forward { host, port } => {
+            if host.is_empty() || port == 0 {
+                return Err(RemoteError::new(
+                    ErrorCode::BadRequest,
+                    "give a host and port",
+                ));
+            }
+            let target = format!("{host}:{port}");
+            let tcp = tokio::time::timeout(
+                Duration::from_secs(10),
+                tokio::net::TcpStream::connect(&target),
+            )
+            .await
+            .map_err(|_| {
+                RemoteError::new(
+                    ErrorCode::NotFound,
+                    format!("{target} didn't answer on the machine"),
+                )
+            })?
+            .map_err(|e| {
+                RemoteError::new(
+                    ErrorCode::NotFound,
+                    format!("nothing to connect to at {target} on the machine ({e})"),
+                )
+            })?;
+            let _ = tcp.set_nodelay(true);
+            Reply::Forward(tcp)
+        }
         Command::CloseTerminal(id) => {
             let info = inner.terminals.close(&id).ok_or_else(|| {
                 RemoteError::new(ErrorCode::NotFound, format!("no terminal session {id}"))
@@ -1125,6 +1155,27 @@ async fn cleanup_loop(inner: std::sync::Weak<Inner>) {
         };
         let _ = tokio::task::spawn_blocking(move || inner.clean_up_unused(now_ms())).await;
     }
+}
+
+/// Passes a forwarded connection's bytes both ways until either side finishes.
+async fn serve_forward(
+    tcp: tokio::net::TcpStream,
+    mut send: SendStream,
+    mut recv: RecvStream,
+) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
+    write_frame(&mut send, &Response::Forwarding).await?;
+    let (mut tcp_read, mut tcp_write) = tcp.into_split();
+    let up = async {
+        let _ = tokio::io::copy(&mut recv, &mut tcp_write).await;
+        let _ = tcp_write.shutdown().await;
+    };
+    let down = async {
+        let _ = tokio::io::copy(&mut tcp_read, &mut send).await;
+        let _ = send.shutdown().await;
+    };
+    tokio::join!(up, down);
+    Ok(())
 }
 
 async fn serve_pairing(inner: Arc<Inner>, conn: Connection) {
