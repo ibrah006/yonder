@@ -58,7 +58,7 @@ pub struct TerminalInfo {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TerminalInput {
     /// Keystrokes and pasted text.
-    Data(Vec<u8>),
+    Data(#[serde(with = "serde_bytes")] Vec<u8>),
     /// The client's window changed size.
     Resize { cols: u16, rows: u16 },
 }
