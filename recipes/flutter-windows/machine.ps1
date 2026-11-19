@@ -1,6 +1,11 @@
 # Yonder recipe: Flutter for Windows (with Shorebird), machine part.
 #
-# Run once on the Windows PC in an Administrator PowerShell, from nothing:
+# Runs with administrator rights. From your Mac, once the agent is installed and
+# the machine's owner allowed it (`yonder-agent allow <device> admin` on the PC):
+#
+#   yonder prep win
+#
+# Or on the PC itself, in an Administrator PowerShell, from nothing:
 #
 #   Set-ExecutionPolicy Bypass -Scope Process -Force
 #   .\recipes\flutter-windows\machine.ps1

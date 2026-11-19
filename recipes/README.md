@@ -1,20 +1,30 @@
 # Recipes
 
 Setup recipes bring a machine to the state a project needs, starting from a fresh install.
-Each recipe has two parts:
+Each recipe has two parts, and the CLI and the app carry both:
 
-- **Machine part** (`machine.ps1`): tools for every account, which needs an administrator.
-  Run it once on the machine itself. It's safe to run again; anything already there is
-  skipped.
+- **Machine part** (`machine.ps1`): tools for every account and system settings. It
+  needs administrator rights. `yonder prep <machine>` runs it from your computer. It
+  needs the Admin permission, which the machine's owner grants on the machine with
+  `yonder-agent allow <device> admin`; the app has a **Prepare…** button that does the
+  same. You can also run it on the machine itself in an Administrator PowerShell. It's
+  safe to run again; anything already there is skipped.
 - **Project part** (`project.ps1`): the project's own versions, installed for the build
-  account that jobs run as. `yonder setup <machine>` runs it from your computer, in the
-  machine's copy of the project, and lists anything still missing.
+  account that jobs run as. `yonder setup <machine>` runs it in the machine's copy of the
+  project and lists anything still missing. `yonder doctor <machine>` runs the same checks
+  without installing anything.
 
 ## flutter-windows
 
 Flutter apps for Windows, with Shorebird when the project has `shorebird.yaml`.
 
-**Machine part** (once, on the PC, in an Administrator PowerShell, from a Yonder checkout):
+**Machine part.** From your computer, once the device has the Admin permission:
+
+```sh
+yonder prep win
+```
+
+Or once on the PC, in an Administrator PowerShell, from a Yonder checkout:
 
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
@@ -41,7 +51,8 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 yonder setup win
 ```
 
-This installs the project's Flutter (`.fvmrc`) through fvm and links it at
+This installs the project's Flutter (`.fvmrc`, or an exact version under
+`environment: flutter:` in `pubspec.yaml`) through fvm and links it at
 `.fvm\flutter_sdk`. It then precaches the Windows artifacts, runs `pub get` and installs
 Shorebird for the build account. Finally it checks Inno Setup and the files
 `.yonderinclude` lists, and ends with `flutter doctor`. If anything is still missing, it
