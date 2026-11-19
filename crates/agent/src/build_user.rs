@@ -611,7 +611,7 @@ pub fn record_failure(job_dir: &Path, reason: &str) {
 }
 
 /// Joins arguments into one command line, quoted the way Windows programs split it again.
-fn command_line(args: &[&OsStr]) -> Vec<u16> {
+pub(crate) fn command_line(args: &[&OsStr]) -> Vec<u16> {
     let mut line = Vec::new();
     for arg in args {
         if !line.is_empty() {
