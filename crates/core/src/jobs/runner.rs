@@ -312,6 +312,7 @@ mod tests {
             label: None,
             secrets: vec![],
             borrow_git: false,
+            admin: false,
         };
         let (store, id, state, _dir) = run_spec(spec);
         assert_eq!(state, JobState::Failed);

@@ -64,6 +64,10 @@ pub struct JobSpec {
     /// follows the job (see [`crate::credentials`]).
     #[serde(default)]
     pub borrow_git: bool,
+    /// Runs with administrator rights instead of as the build user. Needs the
+    /// controller's Admin permission, which the machine's owner grants.
+    #[serde(default)]
+    pub admin: bool,
 }
 
 impl JobSpec {
@@ -76,6 +80,7 @@ impl JobSpec {
             label: None,
             secrets: Vec::new(),
             borrow_git: false,
+            admin: false,
         }
     }
 
@@ -103,6 +108,9 @@ impl JobSpec {
         }
         if self.borrow_git {
             summary.push_str(" [borrows git logins]");
+        }
+        if self.admin {
+            summary.push_str(" [as administrator]");
         }
         summary
     }
