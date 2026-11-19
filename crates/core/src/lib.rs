@@ -14,6 +14,7 @@ pub mod agent;
 pub mod audit;
 pub mod controller;
 pub mod error;
+pub mod footprint;
 pub mod identity;
 pub mod jobs;
 pub mod net;
