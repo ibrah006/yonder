@@ -45,7 +45,23 @@ fn project_here() -> Result<LocalProject> {
 
 /// Copies the project around the current folder to `machine`.
 pub async fn sync_here(controller: &Controller, machine: &PairedMachine) -> Result<Synced> {
-    let project = project_here()?;
+    sync_project(controller, machine, project_here()?).await
+}
+
+/// Copies the git project at `root` to `machine`.
+pub async fn sync_at(
+    controller: &Controller,
+    machine: &PairedMachine,
+    root: &Path,
+) -> Result<Synced> {
+    sync_project(controller, machine, LocalProject::scan(root)?).await
+}
+
+async fn sync_project(
+    controller: &Controller,
+    machine: &PairedMachine,
+    project: LocalProject,
+) -> Result<Synced> {
     let id = WorkspaceId::for_project(&project.root, &controller.id());
     eprintln!(
         "[yonder] syncing {} ({} files, {}) to {}…",
