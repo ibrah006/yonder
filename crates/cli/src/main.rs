@@ -9,6 +9,7 @@ mod jobs;
 mod secrets;
 mod setup;
 mod shell;
+mod upgrade;
 mod wake;
 mod workspace;
 
@@ -125,6 +126,14 @@ enum Cmd {
         /// Recipe to use (default: the one that fits the project you're in).
         #[arg(long)]
         recipe: Option<String>,
+    },
+    /// Rebuild a Windows machine's agent from Yonder's source here and reinstall it.
+    /// Needs the admin permission and Rust on the machine.
+    Upgrade {
+        machine: String,
+        /// Your Yonder checkout (default: the one this was built from).
+        #[arg(long)]
+        source: Option<std::path::PathBuf>,
     },
     /// Save, list or delete secrets your jobs use on a machine (tokens, signing keys).
     Secret {
@@ -348,6 +357,9 @@ async fn run(controller: &Controller, command: Cmd, state: &StateDir) -> Result<
         }
         Cmd::Prep { machine, recipe } => {
             return setup::run(controller, &machine, recipe.as_deref(), setup::Mode::Prep).await;
+        }
+        Cmd::Upgrade { machine, source } => {
+            return upgrade::run(controller, &machine, source).await;
         }
         Cmd::Secret { what } => secrets::run(controller, what).await?,
         Cmd::Footprint { machine } => footprint::show(controller, machine).await?,
