@@ -289,6 +289,12 @@ impl JobManager {
         self.store.list()
     }
 
+    /// Jobs whose runner this agent started (or adopted) and that haven't ended. Unlike
+    /// `status.json`, which the job itself can write, this can't be faked.
+    pub fn running(&self) -> Vec<JobId> {
+        self.slots().running.iter().cloned().collect()
+    }
+
     /// Whether any job is queued or running.
     pub fn busy(&self) -> bool {
         let slots = self.slots();
