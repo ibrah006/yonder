@@ -49,9 +49,16 @@ $vs = if (Test-Path $vswhere) {
 if ($vs) { Ok "Visual Studio C++ at $vs" } else { Need "Visual Studio's C++ build tools are missing ($machinePart)" }
 $devMode = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock' -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense
 if ($devMode -eq 1) { Ok 'Developer Mode' } else { Need "Developer Mode is off; fvm can't link the SDK ($machinePart)" }
+# Jobs are meant to run without admin rights; admin work goes through `yonder prep` and
+# `yonder run --admin`, which the machine's owner allows per device.
+if ((& whoami /groups) -match 'S-1-5-32-544') {
+  Write-Host "  ! $env:USERNAME is an administrator: every job and shell has full control of this PC." -ForegroundColor Yellow
+  Write-Host '    Remove it from Administrators (as admin: net localgroup Administrators yonder-build /delete),'
+  Write-Host '    then use `yonder prep` or `yonder run --admin` for the few things that need it.'
+}
 if ($todo.Count -gt 0) { Done }
 
-Step 'Flutter (fvm)'
+Step 'Flutter (fvm)''
 $version = $null
 if (Test-Path .fvmrc) { $version = (Get-Content .fvmrc -Raw | ConvertFrom-Json).flutter }
 if (-not $version -and (Test-Path .fvm\fvm_config.json)) {
