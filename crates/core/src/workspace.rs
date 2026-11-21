@@ -204,7 +204,7 @@ fn is_link(meta: &std::fs::Metadata) -> bool {
 /// such as `out -> C:\ProgramData\Yonder`; following it would let a pull read, or a
 /// sync write, anywhere. So no part of the path may be a link; parts that don't exist
 /// yet are fine.
-fn no_links(root: &Path, path: &str) -> std::io::Result<PathBuf> {
+pub(crate) fn no_links(root: &Path, path: &str) -> std::io::Result<PathBuf> {
     let mut full = root.to_path_buf();
     for part in path.split('/') {
         full.push(part);
