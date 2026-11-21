@@ -16,15 +16,25 @@ if (-not $cargo) {
   $cargo = $found
   $env:RUSTUP_HOME = Join-Path (Split-Path (Split-Path (Split-Path $found))) '.rustup'
 }
-# Downloads go to a folder of the agent's, not into that person's profile.
+# Everything happens in a folder only SYSTEM and Administrators can change: the synced
+# copy is writable by the build account, and what's built here runs as SYSTEM.
 $home_ = Join-Path $env:ProgramData 'Yonder\upgrade'
 New-Item -ItemType Directory -Force -Path $home_ | Out-Null
+& icacls $home_ /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' /grant:r '*S-1-5-32-544:(OI)(CI)F' /Q | Out-Null
+if ($LASTEXITCODE -ne 0) { Fail "couldn't lock $home_" }
+$src = Join-Path $home_ 'src'
+# /MIR keeps it equal to the synced copy, /XJ skips junctions a job may have left.
+& robocopy (Get-Location).Path $src /MIR /XJ /XD target .git /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($LASTEXITCODE -ge 8) { Fail "couldn't copy the source (robocopy exit $LASTEXITCODE)" }
+Set-Location $src
+# Downloads go here too, not into that person's profile.
 $env:CARGO_HOME = Join-Path $home_ 'cargo'
+$env:CARGO_TARGET_DIR = Join-Path $home_ 'target'
 Write-Host "> building the agent with $cargo"
 & $cargo build --release -p yonder-agent
 if ($LASTEXITCODE -ne 0) { Fail "the build failed (cargo exit $LASTEXITCODE)" }
 
-$built = Join-Path (Get-Location) 'target\release\yonder-agent.exe'
+$built = Join-Path $env:CARGO_TARGET_DIR 'release\yonder-agent.exe'
 $staged = Join-Path $home_ 'yonder-agent.exe'
 Copy-Item -Force $built $staged
 $log = Join-Path $home_ 'install.log'
