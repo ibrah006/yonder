@@ -415,7 +415,14 @@ impl YonderApp {
                         asked.recv().await as Option<yonder_core::credentials::GitCredentialRequest>
                     {
                         let host = request.describe();
-                        let credential = git_fill(&request).await;
+                        // The machine checks the job's remotes; this checks the request
+                        // is safe to pass to git here.
+                        let safe = request
+                            .lendable(std::slice::from_ref(
+                                request.host.as_ref().unwrap_or(&String::new()),
+                            ))
+                            .is_ok();
+                        let credential = if safe { git_fill(&request).await } else { None };
                         let lent = credential.is_some();
                         let _ = c
                             .answer_git_credential(&m, &id, request.id, credential)
