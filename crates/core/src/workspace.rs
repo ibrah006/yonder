@@ -184,6 +184,98 @@ fn join(root: &Path, path: &str) -> PathBuf {
         .fold(root.to_path_buf(), |p, part| p.join(part))
 }
 
+/// Whether `meta` is a symlink, a Windows junction or another reparse point.
+fn is_link(meta: &std::fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return true;
+        }
+    }
+    meta.file_type().is_symlink()
+}
+
+/// Refuses a path in a project copy that passes through a link.
+///
+/// The agent works on copies with more rights than the jobs that also write in them (on
+/// Windows it's SYSTEM, jobs are the build user). A job could leave a link or junction
+/// such as `out -> C:\ProgramData\Yonder`; following it would let a pull read, or a
+/// sync write, anywhere. So no part of the path may be a link; parts that don't exist
+/// yet are fine.
+fn no_links(root: &Path, path: &str) -> std::io::Result<PathBuf> {
+    let mut full = root.to_path_buf();
+    for part in path.split('/') {
+        full.push(part);
+        match std::fs::symlink_metadata(&full) {
+            Ok(meta) if is_link(&meta) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    format!(
+                        "{} is a link; Yonder doesn't follow links in project copies",
+                        full.display()
+                    ),
+                ));
+            }
+            Ok(_) => {}
+            // Not there yet (or a file stands where a folder will be): nothing to follow.
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                ) =>
+            {
+                break;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(join(root, path))
+}
+
+/// On Windows, whether an opened file really is under `root`: closes the gap between
+/// checking a path and opening it, when something swaps in a junction meanwhile.
+#[cfg(windows)]
+fn opened_inside(file: &std::fs::File, root: &Path) -> bool {
+    use std::os::windows::ffi::OsStringExt;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_NAME_NORMALIZED, GetFinalPathNameByHandleW,
+    };
+    let Ok(root) = std::fs::canonicalize(root) else {
+        return false;
+    };
+    let mut buffer = vec![0u16; 1024];
+    loop {
+        // SAFETY: a valid handle and a buffer of the given length.
+        let n = unsafe {
+            GetFinalPathNameByHandleW(
+                file.as_raw_handle() as _,
+                buffer.as_mut_ptr(),
+                buffer.len() as u32,
+                FILE_NAME_NORMALIZED,
+            )
+        } as usize;
+        if n == 0 {
+            return false;
+        }
+        if n < buffer.len() {
+            buffer.truncate(n);
+            break;
+        }
+        buffer.resize(n + 1, 0);
+    }
+    let opened = PathBuf::from(std::ffi::OsString::from_wide(&buffer));
+    let lower = |p: &Path| p.to_string_lossy().to_lowercase();
+    Path::new(&lower(&opened)).starts_with(lower(&root))
+}
+
+#[cfg(not(windows))]
+fn opened_inside(_file: &std::fs::File, _root: &Path) -> bool {
+    true
+}
+
 /// Writes `contents` from `source` to `target` through a temporary file, so a reader
 /// never sees half a file.
 fn replace_file(source: &mut impl Read, target: &Path) -> std::io::Result<()> {
@@ -196,8 +288,16 @@ fn replace_file(source: &mut impl Read, target: &Path) -> std::io::Result<()> {
         ".{}.yonder-tmp",
         target.file_name().unwrap_or_default().to_string_lossy()
     ));
+    // A leftover (or planted) temp file goes first; create_new never follows a link.
+    match std::fs::remove_file(&temp) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+        _ => {}
+    }
     {
-        let mut file = std::fs::File::create(&temp)?;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
         std::io::copy(source, &mut file)?;
         file.flush()?;
     }
@@ -447,7 +547,7 @@ impl Workspaces {
     /// The hash of the copy's file at `path`, if it's there. Uses the record when the size
     /// and modification time haven't changed.
     fn current_hash(dir: &Path, records: &Records, path: &str) -> Option<Hash> {
-        let full = join(dir, path);
+        let full = no_links(dir, path).ok()?;
         let meta = std::fs::symlink_metadata(&full).ok()?;
         if !meta.is_file() {
             return None;
@@ -584,7 +684,7 @@ impl Workspaces {
                     file.path
                 )));
             };
-            let source = join(&dir, source);
+            let source = no_links(&dir, source).map_err(io(&dir))?;
             std::fs::create_dir_all(blob.parent().expect("blob has a parent"))
                 .map_err(io(&blob))?;
             std::fs::copy(&source, &blob).map_err(io(&source))?;
@@ -593,7 +693,9 @@ impl Workspaces {
         // Remove files that left the project.
         let wanted: HashSet<&str> = pending.iter().map(|f| f.path.as_str()).collect();
         for path in records.keys().filter(|p| !wanted.contains(p.as_str())) {
-            let full = join(&dir, path);
+            let Ok(full) = no_links(&dir, path) else {
+                continue;
+            };
             if std::fs::symlink_metadata(&full).is_ok_and(|m| m.is_file()) {
                 std::fs::remove_file(&full).map_err(io(&full))?;
             }
@@ -609,7 +711,7 @@ impl Workspaces {
 
         for file in &changes {
             let blob = self.blob(id, &file.hash);
-            let target = join(&dir, &file.path);
+            let target = no_links(&dir, &file.path).map_err(io(&dir))?;
             let mut source = std::fs::File::open(&blob).map_err(io(&blob))?;
             replace_file(&mut source, &target).map_err(io(&target))?;
         }
@@ -692,8 +794,14 @@ impl Workspaces {
         if !valid_path(path) {
             return Err(Error::Protocol(format!("invalid path {path:?}")));
         }
-        let full = join(&self.dir(id), path);
+        let dir = self.dir(id);
+        let full = no_links(&dir, path).map_err(|e| Error::io(&dir, e))?;
         let mut file = std::fs::File::open(&full).map_err(|e| Error::io(&full, e))?;
+        if !opened_inside(&file, &dir) {
+            return Err(Error::Protocol(format!(
+                "{path} leads outside the project copy; Yonder doesn't follow links"
+            )));
+        }
         file.seek(SeekFrom::Start(offset))
             .map_err(|e| Error::io(&full, e))?;
         let mut data = Vec::with_capacity(CHUNK_BYTES);
@@ -853,6 +961,39 @@ mod tests {
         assert!(WorkspaceId::parse("../x").is_none());
         assert!(WorkspaceId::parse(".hidden").is_none());
         assert!(WorkspaceId::parse("a/b").is_none());
+    }
+
+    /// A job can leave links in a copy; the agent (with more rights) must not follow them.
+    #[cfg(unix)]
+    #[test]
+    fn links_in_a_copy_are_not_followed() {
+        let (temp, ws, id) = setup();
+        ws.plan(&id, vec![entry("a.txt", b"hello")], true).unwrap();
+        ws.put(&id, vec![part(b"hello")]).unwrap();
+        let dir = ws.apply(&id).unwrap();
+
+        let outside = temp.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("key"), b"private").unwrap();
+        std::os::unix::fs::symlink(&outside, dir.join("out")).unwrap();
+        std::os::unix::fs::symlink(outside.join("key"), dir.join("key")).unwrap();
+
+        // Pulls can't read through them, and listings skip them.
+        assert!(ws.read(&id, "out/key", 0).is_err());
+        assert!(ws.read(&id, "key", 0).is_err());
+        assert!(
+            ws.list(&id, &["**".into()])
+                .unwrap()
+                .iter()
+                .all(|f| f.path == "a.txt")
+        );
+
+        // A sync can't write through them, nor take contents from them.
+        let files = vec![entry("a.txt", b"hello"), entry("out/key", b"overwritten")];
+        ws.plan(&id, files, true).unwrap();
+        ws.put(&id, vec![part(b"overwritten")]).unwrap();
+        assert!(ws.apply(&id).is_err());
+        assert_eq!(std::fs::read(outside.join("key")).unwrap(), b"private");
     }
 
     #[test]
