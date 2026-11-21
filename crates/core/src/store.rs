@@ -39,8 +39,14 @@ fn create_private_dir(dir: &Path) -> Result<()> {
 
 fn write_private(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
+    // A leftover or planted file (or link) at the temp path goes first: the folder may be
+    // shared with a job, and opening a link would write wherever it points.
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+        _ => {}
+    }
     let mut options = std::fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
