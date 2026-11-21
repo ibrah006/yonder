@@ -349,6 +349,9 @@ pub fn run(state: &Path, what: Launch<'_>) -> Result<u32> {
                 bail!("no job folder at {}", dir.display());
             }
             grant_access(dir)?;
+            // What to run and who asked: the job reads it, but must not change it (the
+            // agent trusts it for ownership, borrowed logins and the job's folder).
+            read_only(&dir.join("job.json"))?;
             let program = std::env::current_exe()?;
             let line = command_line(&[program.as_os_str(), "job-run".as_ref(), dir.as_os_str()]);
             (line, CREATE_NO_WINDOW, false)
@@ -482,6 +485,30 @@ fn grant_access(dir: &Path) -> Result<()> {
         .context("couldn't run icacls")?;
     if !status.success() {
         bail!("couldn't give {USER} access to {}", dir.display());
+    }
+    Ok(())
+}
+
+/// Lets the account only read this file: no inherited rights, so it can't change,
+/// rename or delete it either. SYSTEM and Administrators keep full control.
+fn read_only(file: &Path) -> Result<()> {
+    let status = Command::new("icacls")
+        .arg(file)
+        .args([
+            "/inheritance:r",
+            "/grant:r",
+            "*S-1-5-18:F",
+            "/grant:r",
+            "*S-1-5-32-544:F",
+            "/grant:r",
+            &format!("{}:R", qualified_name()),
+            "/Q",
+        ])
+        .stdout(Stdio::null())
+        .status()
+        .context("couldn't run icacls")?;
+    if !status.success() {
+        bail!("couldn't make {} read-only for {USER}", file.display());
     }
     Ok(())
 }
