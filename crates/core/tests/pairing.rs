@@ -93,7 +93,7 @@ fn remote_code(err: Error) -> ErrorCode {
 async fn pair_then_ping_and_info() {
     let t = start_agent(true).await;
     let mut events = t.agent.subscribe();
-    let (controller, _dir) = new_controller("Ibrahim's Mac").await;
+    let (controller, _dir) = new_controller("Sam's Mac").await;
 
     let machine = controller.pair(&ticket(&t.agent).await).await.unwrap();
     assert_eq!(machine.name, "build-box");
@@ -104,7 +104,7 @@ async fn pair_then_ping_and_info() {
     match events.recv().await.unwrap() {
         AgentEvent::Paired(c) => {
             assert_eq!(c.id, controller.id());
-            assert_eq!(c.name, "Ibrahim's Mac");
+            assert_eq!(c.name, "Sam's Mac");
         }
         other => panic!("unexpected event {other:?}"),
     }
