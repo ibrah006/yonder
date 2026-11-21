@@ -896,6 +896,13 @@ async fn decide(
             offset,
         } => {
             audit.request = None;
+            // A running job could swap folders for links while the file is read.
+            if inner.job_running_in(&inner.workspaces.dir(&workspace)) {
+                return Err(RemoteError::new(
+                    ErrorCode::Busy,
+                    "a job is still running in this workspace; pull when it's finished",
+                ));
+            }
             let data = blocking(&inner.workspaces, move |w| {
                 w.read(&workspace, &path, offset)
             })
