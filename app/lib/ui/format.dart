@@ -53,3 +53,6 @@ String uptime(BigInt secs) {
   if (s < 86400) return '${s ~/ 3600} h';
   return '${s ~/ 86400} days';
 }
+
+/// "1 shell", "2 shells".
+String count(int n, String word) => '$n ${n == 1 ? word : '${word}s'}';
