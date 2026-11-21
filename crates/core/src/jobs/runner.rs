@@ -312,6 +312,7 @@ mod tests {
             label: None,
             secrets: vec![],
             borrow_git: false,
+            git_hosts: Vec::new(),
             admin: false,
         };
         let (store, id, state, _dir) = run_spec(spec);
