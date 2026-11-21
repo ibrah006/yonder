@@ -64,6 +64,10 @@ pub struct JobSpec {
     /// follows the job (see [`crate::credentials`]).
     #[serde(default)]
     pub borrow_git: bool,
+    /// The only hosts git may borrow logins for (the project's https remotes, from the
+    /// device that started the job). Empty: none.
+    #[serde(default)]
+    pub git_hosts: Vec<String>,
     /// Runs with administrator rights instead of as the build user. Needs the
     /// controller's Admin permission, which the machine's owner grants.
     #[serde(default)]
@@ -80,6 +84,7 @@ impl JobSpec {
             label: None,
             secrets: Vec::new(),
             borrow_git: false,
+            git_hosts: Vec::new(),
             admin: false,
         }
     }
@@ -338,7 +343,20 @@ impl JobStore {
     pub fn scrub(&self, id: &JobId) {
         let dir = self.job_dir(id);
         let _ = std::fs::remove_file(dir.join(SECRETS));
-        remove_secret_files(&dir);
+        // Not the runner's list: the job can write that file, and this runs with the
+        // agent's rights. The paths come from the spec the controller signed.
+        if let Ok(meta) = read_json::<JobMeta>(&dir.join(META))
+            && let Some(cwd) = &meta.spec.cwd
+        {
+            for secret in &meta.spec.secrets {
+                if let SecretTarget::File(relative) = &secret.target
+                    && let Ok(path) = crate::workspace::no_links(Path::new(cwd), relative)
+                {
+                    let _ = std::fs::remove_file(path);
+                }
+            }
+        }
+        let _ = std::fs::remove_file(dir.join(SECRET_FILES));
         crate::credentials::clear(&dir);
     }
 
