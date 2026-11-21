@@ -434,14 +434,14 @@ impl Inner {
     /// Whether an unfinished job (anyone's) runs inside `dir`.
     fn job_running_in(&self, dir: &Path) -> bool {
         self.jobs.as_ref().is_some_and(|jobs| {
-            jobs.list().iter().any(|job| {
-                !job.status.state.is_finished()
-                    && job
-                        .meta
+            jobs.running().iter().any(|id| {
+                jobs.store().info(id).map_or(true, |job| {
+                    job.meta
                         .spec
                         .cwd
                         .as_deref()
                         .is_some_and(|cwd| Path::new(cwd).starts_with(dir))
+                })
             })
         })
     }
@@ -1031,6 +1031,17 @@ async fn decide(
                 ));
             }
             let dir = jobs.store().job_dir(&job);
+            let waiting = credentials::pending(&dir)
+                .into_iter()
+                .find(|r| r.id == request);
+            if credential.is_some()
+                && waiting.is_some_and(|r| r.lendable(&info.meta.spec.git_hosts).is_err())
+            {
+                return Err(RemoteError::new(
+                    ErrorCode::PermissionDenied,
+                    "that git request isn't for one of the job's remotes",
+                ));
+            }
             if !credentials::answer(&dir, &request, credential).map_err(internal)? {
                 return Err(RemoteError::new(
                     ErrorCode::NotFound,
@@ -1178,6 +1189,10 @@ async fn stream_logs(
         // Only the device that started the job lends it logins.
         if job.meta.spec.borrow_git && &job.meta.controller == peer {
             for request in credentials::pending(&store.job_dir(id)) {
+                if request.lendable(&job.meta.spec.git_hosts).is_err() {
+                    // Not for this job's remotes: git gets no answer and gives up.
+                    continue;
+                }
                 if asked.insert(request.id.clone()) {
                     write_frame(send, &Response::GitCredentialRequest(request)).await?;
                 }
