@@ -93,9 +93,29 @@ impl RunArgs {
             label: self.label.clone(),
             secrets,
             borrow_git: self.borrow_git,
+            git_hosts: if self.borrow_git {
+                git_hosts()?
+            } else {
+                Vec::new()
+            },
             admin: self.admin,
         })
     }
+}
+
+/// The https remotes of the project here: the only hosts a job may borrow logins for.
+fn git_hosts() -> Result<Vec<String>> {
+    let here = std::env::current_dir()?;
+    let root = crate::workspace::git_root(&here).map_err(|_| {
+        anyhow::anyhow!(
+            "--borrow-git lends logins for the project's remotes; run it inside the project"
+        )
+    })?;
+    let hosts = yonder_core::credentials::remote_hosts(&root);
+    if hosts.is_empty() {
+        bail!("--borrow-git: the project has no https remotes to lend logins for");
+    }
+    Ok(hosts)
 }
 
 /// `NAME` or `NAME=TARGET` from --secret / --secret-file.
@@ -250,8 +270,18 @@ async fn lend_git(
     request: GitCredentialRequest,
 ) {
     let what = request.describe();
-    let credential = git_fill(&request).await;
+    // The machine checks the job's remotes; this checks the request is safe to pass on.
+    let credential = match request.lendable(std::slice::from_ref(
+        request.host.as_ref().unwrap_or(&String::new()),
+    )) {
+        Ok(()) => git_fill(&request).await,
+        Err(why) => {
+            eprintln!("\n[yonder] declining a git request for {what}: {why}");
+            None
+        }
+    };
     match &credential {
+        None if request.protocol.as_deref() != Some("https") => {}
         Some(c) => eprintln!(
             "\n[yonder] lending your git login ({}) for {what}",
             c.username
