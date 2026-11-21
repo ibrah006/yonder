@@ -61,6 +61,8 @@ async fn git_in_a_job_borrows_a_login_from_its_device() {
                   | git credential approve";
     let mut spec = JobSpec::shell(script);
     spec.borrow_git = true;
+    // The project's remotes; requests for other hosts never reach the device.
+    spec.git_hosts = vec!["example.com".into()];
     let job = mac.run(&machine, spec).await.unwrap();
     let id = job.meta.id.clone();
 
