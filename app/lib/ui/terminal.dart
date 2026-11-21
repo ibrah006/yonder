@@ -6,6 +6,8 @@ import 'package:xterm/xterm.dart';
 
 import '../src/rust/api/yonder.dart';
 import 'format.dart';
+import 'theme.dart';
+import 'widgets.dart';
 
 /// Shells on one machine: start a new one or reattach to one that's still running.
 class TerminalTab extends StatefulWidget {
@@ -19,7 +21,7 @@ class TerminalTab extends StatefulWidget {
 }
 
 class _TerminalTabState extends State<TerminalTab> {
-  List<ShellInfo> shells = [];
+  List<ShellInfo>? shells;
   String? error;
 
   /// The shell shown: `''` for a new one, an id to attach, `null` for none.
@@ -35,7 +37,12 @@ class _TerminalTabState extends State<TerminalTab> {
   Future<void> _load() async {
     try {
       final list = await widget.app.shells(machineId: widget.machine.id);
-      if (mounted) setState(() => shells = list);
+      if (mounted) {
+        setState(() {
+          shells = list;
+          error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => error = errorText(e));
     }
@@ -61,37 +68,97 @@ class _TerminalTabState extends State<TerminalTab> {
         },
       );
     }
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
+    final shells = this.shells;
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final tones = Tones.of(context);
+    final live = shells?.where((s) => !s.exited).toList() ?? [];
+    final win = widget.machine.os == 'win';
+    if (shells != null && live.isEmpty) {
+      return EmptyState(
+        icon: Icons.terminal_rounded,
+        title: 'Open a shell on ${widget.machine.name}',
+        message: '${win ? 'PowerShell' : 'A shell'} as the build account. It keeps running when you '
+            'leave it or lose the connection, so you can come back to it.',
+        action: Column(
           children: [
             FilledButton.icon(
               onPressed: () => _show(''),
-              icon: const Icon(Icons.terminal, size: 18),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('New shell'),
             ),
-            const SizedBox(width: 8),
-            IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
+            if (error != null) ErrorText(error!),
           ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Shells keep running when you leave them or lose the connection; reattach below.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        if (error != null)
-          Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        for (final s in shells)
-          ListTile(
-            leading: Icon(s.exited ? Icons.stop_circle_outlined : Icons.terminal),
-            title: Text('Shell ${s.id}'),
-            subtitle: Text(
-              'started ${when(s.createdAtMs)} by ${s.startedBy}'
-              '${s.exited ? ' · exited' : s.attached > 0 ? ' · ${s.attached} attached' : ' · detached'}',
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Shells', style: text.titleMedium),
+                  Text('They keep running when you leave them; reattach here.',
+                      style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ],
+              ),
             ),
-            trailing: s.exited ? null : const Text('Attach'),
-            onTap: s.exited ? null : () => _show(s.id),
+            IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
+            const SizedBox(width: 6),
+            FilledButton.icon(
+              onPressed: () => _show(''),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('New shell'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (error != null) ErrorText(error!),
+        if (shells == null) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+        for (final (i, s) in live.indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: FadeIn(
+              delay: Duration(milliseconds: 30 * i),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _show(s.id),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        const IconTile(Icons.terminal_rounded),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Shell ${s.id}', style: monoStyle(size: 13, weight: FontWeight.w600)),
+                              const SizedBox(height: 2),
+                              Text('started ${when(s.createdAtMs)} by ${s.startedBy}',
+                                  style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                            ],
+                          ),
+                        ),
+                        Pill(
+                          s.attached > 0 ? '${s.attached} attached' : 'detached',
+                          color: s.attached > 0 ? tones.busy : tones.idle,
+                          dot: true,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Attach'),
+                        const Icon(Icons.chevron_right_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
       ],
     );
@@ -129,8 +196,7 @@ class _TerminalViewState extends State<_TerminalView> {
   @override
   void initState() {
     super.initState();
-    decoder = const Utf8Decoder(allowMalformed: true)
-        .startChunkedConversion(_TerminalSink(terminal));
+    decoder = const Utf8Decoder(allowMalformed: true).startChunkedConversion(_TerminalSink(terminal));
     terminal.onOutput = (data) => shell?.send(data: utf8.encode(data));
     terminal.onResize = (cols, rows, _, _) {
       final shell = this.shell;
@@ -202,41 +268,63 @@ class _TerminalViewState extends State<_TerminalView> {
   @override
   Widget build(BuildContext context) {
     final shell = this.shell;
+    final tones = Tones.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final (label, color, pulse) = exited
+        ? ('Exited', tones.idle, false)
+        : problem != null
+            ? ('Disconnected', tones.bad, false)
+            : shell != null
+                ? ('Connected', tones.ok, false)
+                : ('Connecting…', tones.busy, true);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
           child: Row(
             children: [
               TextButton.icon(
                 onPressed: widget.onClose,
-                icon: const Icon(Icons.arrow_back, size: 18),
+                icon: const Icon(Icons.arrow_back_rounded, size: 18),
                 label: Text(exited ? 'Back' : 'Leave running'),
               ),
               const SizedBox(width: 8),
-              Text(shell != null ? 'Shell ${shell.id()}' : 'Connecting…',
-                  style: Theme.of(context).textTheme.bodySmall),
+              Pill(label, color: color, dot: true, pulse: pulse),
+              const SizedBox(width: 10),
+              if (shell != null) Text('Shell ${shell.id()}', style: monoStyle(size: 12, color: scheme.onSurfaceVariant)),
               const Spacer(),
               if (problem != null) ...[
                 Flexible(
-                  child: Text(problem!,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  child: Text(problem!, overflow: TextOverflow.ellipsis, style: TextStyle(color: scheme.error)),
                 ),
-                if (started && !exited)
-                  TextButton(onPressed: _reconnect, child: const Text('Reconnect')),
+                if (started && !exited) ...[
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: _reconnect,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Reconnect'),
+                  ),
+                ],
               ],
             ],
           ),
         ),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 6),
+            decoration: BoxDecoration(
+              color: terminalBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+            ),
+            clipBehavior: Clip.antiAlias,
             child: TerminalView(
               terminal,
               autofocus: true,
-              textStyle: const TerminalStyle(fontFamily: 'Menlo', fontSize: 13),
+              theme: _terminalTheme,
+              textStyle: const TerminalStyle(fontFamily: mono, fontFamilyFallback: monoFallback, fontSize: 13),
             ),
           ),
         ),
@@ -244,6 +332,32 @@ class _TerminalViewState extends State<_TerminalView> {
     );
   }
 }
+
+const _terminalTheme = TerminalTheme(
+  cursor: Color(0xFF7EE2A8),
+  selection: Color(0x5574AEFF),
+  foreground: Color(0xFFD5DDD9),
+  background: terminalBackground,
+  black: Color(0xFF3B4441),
+  red: Color(0xFFFF7B72),
+  green: Color(0xFF5BD18B),
+  yellow: Color(0xFFF2CC60),
+  blue: Color(0xFF74AEFF),
+  magenta: Color(0xFFD2A8FF),
+  cyan: Color(0xFF56D4DD),
+  white: Color(0xFFD5DDD9),
+  brightBlack: Color(0xFF6E7B76),
+  brightRed: Color(0xFFFFA198),
+  brightGreen: Color(0xFF7EE2A8),
+  brightYellow: Color(0xFFF8E3A1),
+  brightBlue: Color(0xFFA5CBFF),
+  brightMagenta: Color(0xFFE2C5FF),
+  brightCyan: Color(0xFFB3F0FF),
+  brightWhite: Color(0xFFFFFFFF),
+  searchHitBackground: Color(0xFFF2CC60),
+  searchHitBackgroundCurrent: Color(0xFF5BD18B),
+  searchHitForeground: Color(0xFF0E1412),
+);
 
 /// Feeds decoded text into the terminal.
 class _TerminalSink implements Sink<String> {
