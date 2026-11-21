@@ -64,6 +64,37 @@ impl GitCredentialRequest {
         text
     }
 
+    /// Whether this device may answer it for a job allowed `hosts`: over https only, for
+    /// one of those hosts, with nothing that could add lines to git's input.
+    pub fn lendable(&self, hosts: &[String]) -> std::result::Result<(), String> {
+        let fields = [&self.protocol, &self.host, &self.path, &self.username];
+        if fields
+            .iter()
+            .any(|v| v.as_deref().is_some_and(|v| v.contains(['\n', '\r', '\0'])))
+        {
+            return Err("the request has line breaks in it".into());
+        }
+        if self.protocol.as_deref() != Some("https") {
+            return Err("only https logins are lent".into());
+        }
+        let host = self
+            .host
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !hosts.iter().any(|h| h.eq_ignore_ascii_case(&host)) {
+            return Err(format!(
+                "{host} isn't one of the project's remotes ({})",
+                if hosts.is_empty() {
+                    "none".to_string()
+                } else {
+                    hosts.join(", ")
+                }
+            ));
+        }
+        Ok(())
+    }
+
     /// The request in git's credential format, for `git credential fill`.
     pub fn to_git_input(&self) -> String {
         let mut out = String::new();
@@ -257,6 +288,35 @@ pub fn answer(job_dir: &Path, id: &str, credential: Option<GitCredential>) -> Re
     Ok(true)
 }
 
+/// The hosts (with any port) of the https remotes of the git repository at `dir`: what a
+/// job building it may borrow logins for.
+pub fn remote_hosts(dir: &Path) -> Vec<String> {
+    let Ok(output) = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["remote", "-v"])
+        .output()
+    else {
+        return Vec::new();
+    };
+    let mut hosts: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.split_whitespace().nth(1))
+        .filter_map(https_host)
+        .collect();
+    hosts.sort();
+    hosts.dedup();
+    hosts
+}
+
+/// "github.com" from "https://me@github.com/org/repo.git".
+fn https_host(url: &str) -> Option<String> {
+    let rest = url.strip_prefix("https://")?;
+    let authority = rest.split('/').next()?;
+    let host = authority.rsplit('@').next()?;
+    (!host.is_empty()).then(|| host.to_ascii_lowercase())
+}
+
 /// Removes requests and answers a job left (it ended while git was waiting).
 pub fn clear(job_dir: &Path) {
     let _ = std::fs::remove_dir_all(job_dir.join(DIR));
@@ -315,6 +375,37 @@ mod tests {
             run_helper(dir.path(), op, input.as_bytes(), Vec::new(), Vec::new()).unwrap();
         }
         assert!(!dir.path().join(DIR).exists());
+    }
+
+    #[test]
+    fn only_the_projects_https_hosts_are_lent() {
+        let request = |protocol: &str, host: &str| GitCredentialRequest {
+            id: "0".into(),
+            protocol: Some(protocol.into()),
+            host: Some(host.into()),
+            path: None,
+            username: None,
+        };
+        let hosts = vec!["github.com".to_string()];
+        assert!(request("https", "github.com").lendable(&hosts).is_ok());
+        assert!(request("https", "GitHub.com").lendable(&hosts).is_ok());
+        assert!(request("https", "gitlab.com").lendable(&hosts).is_err());
+        assert!(request("http", "github.com").lendable(&hosts).is_err());
+        assert!(request("https", "github.com").lendable(&[]).is_err());
+        assert!(
+            request("https", "github.com\nhost=evil.com")
+                .lendable(&hosts)
+                .is_err()
+        );
+        assert_eq!(
+            https_host("https://me@GitHub.com/org/repo.git").as_deref(),
+            Some("github.com")
+        );
+        assert_eq!(
+            https_host("https://git.example.com:8443/r").as_deref(),
+            Some("git.example.com:8443")
+        );
+        assert_eq!(https_host("git@github.com:org/repo.git"), None);
     }
 
     #[test]
