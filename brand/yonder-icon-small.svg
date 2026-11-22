@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- The app icon at 16-32 px: a bigger, bolder mark that stays legible. -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#4C8272"/>
+      <stop offset="1" stop-color="#1A362F"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22.5" fill="url(#ground)"/>
+  <rect width="100" height="100" rx="22.5" fill="url(#sheen)"/>
+  <g transform="translate(11 11) scale(0.78)" fill="none">
+    <path d="M25 75 A52 52 0 0 1 61 29" stroke="#8FE3BE" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="25" cy="75" r="14" fill="#8FE3BE"/>
+    <circle cx="75" cy="27" r="11" stroke="#8FE3BE" stroke-width="10"/>
+  </g>
+</svg>
