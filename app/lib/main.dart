@@ -9,6 +9,7 @@ import 'ui/devices.dart';
 import 'ui/footprint.dart';
 import 'ui/format.dart';
 import 'ui/jobs.dart';
+import 'ui/logo.dart';
 import 'ui/notify.dart';
 import 'ui/pair.dart';
 import 'ui/prepare.dart';
@@ -157,7 +158,7 @@ class _HomeState extends State<Home> {
       );
     }
     if (app == null) {
-      return const Scaffold(body: Center(child: _Logo(size: 56, spinning: true)));
+      return const Scaffold(body: Center(child: YonderLogo(size: 56, drawing: true)));
     }
     final machine = machines.where((m) => m.id == selected).firstOrNull;
     final meta = Theme.of(context).platform == TargetPlatform.macOS;
@@ -205,55 +206,6 @@ class _HomeState extends State<Home> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Yonder's mark: a rounded square with arrows both ways.
-class _Logo extends StatefulWidget {
-  const _Logo({this.size = 22, this.spinning = false});
-
-  final double size;
-  final bool spinning;
-
-  @override
-  State<_Logo> createState() => _LogoState();
-}
-
-class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
-  late final controller = AnimationController(vsync: this, duration: const Duration(seconds: 2));
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.spinning) controller.repeat();
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final s = widget.size;
-    return RotationTransition(
-      turns: controller,
-      child: Container(
-        width: s,
-        height: s,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(s * 0.3),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [scheme.primary, Color.lerp(scheme.primary, scheme.tertiary, 0.7)!],
-          ),
-        ),
-        child: Icon(Icons.swap_horiz_rounded, size: s * 0.65, color: scheme.onPrimary),
       ),
     );
   }
@@ -341,7 +293,7 @@ class _Sidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
             child: Row(
               children: [
-                const _Logo(),
+                const YonderLogo(),
                 const SizedBox(width: 10),
                 Text('Yonder', style: text.titleMedium?.copyWith(letterSpacing: -0.2)),
               ],
@@ -568,7 +520,7 @@ class _Welcome extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _Logo(size: 48),
+                const YonderLogo(size: 48),
                 const SizedBox(height: 20),
                 Text('Welcome to Yonder', style: text.headlineSmall),
                 const SizedBox(height: 6),
