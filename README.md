@@ -1,3 +1,5 @@
+<img src="brand/yonder-icon.svg" alt="" width="72">
+
 # Yonder
 
 Use your other computers as if they were part of this one.
