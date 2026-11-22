@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- The macOS app icon at 16-32 px (bigger, bolder mark), on Apple's 1024 grid: an 824-point tile, centred. The
+       drop shadow is added when the PNGs are made (brand/README.md). -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#4C8272"/>
+      <stop offset="1" stop-color="#1A362F"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#ground)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
+  <g transform="translate(190.6 190.6) scale(6.43)" fill="none">
+    <path d="M25 75 A52 52 0 0 1 61 29" stroke="#8FE3BE" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="25" cy="75" r="14" fill="#8FE3BE"/>
+    <circle cx="75" cy="27" r="11" stroke="#8FE3BE" stroke-width="10"/>
+  </g>
+</svg>
