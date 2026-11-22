@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Yonder's mark: a dot for the computer you're at, a ring for the one far
+       away, one arc between them. Draws in currentColor. -->
+  <path d="M25 75 A52 52 0 0 1 63 28" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="25" cy="75" r="11" fill="currentColor"/>
+  <circle cx="75" cy="27" r="10" stroke="currentColor" stroke-width="7"/>
+</svg>
